@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "keiba-lab-api",
   "main": "src/index.js",
-  "compatibility_date": "2026-10-04",
+  "compatibility_date": "2026-10-02",
   "triggers": {
     "crons": ["*/15 * * * *"]
   },
