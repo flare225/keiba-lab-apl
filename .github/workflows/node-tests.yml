@@ -34,7 +34,8 @@ jobs:
           grep -q '3×3' src/index-v1.3.js
           grep -q 'WHY' src/index-v1.3.js
           grep -q '感度分析' src/index-v1.3.js
-          grep -q '自動変更しません' src/index-v1.3.js
+          grep -q '自動ウェイト変更なし' src/index-v1.3.js
+          grep -q '結果リーク' src/index-v1.3.js
       - name: Guard active Worker entrypoint
         run: |
           grep -q '"main": "src/index-v1.3.js"' wrangler.jsonc
