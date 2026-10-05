@@ -36,4 +36,5 @@ jobs:
           grep -q '感度分析' src/index-v1.3.js
           grep -q '自動変更しません' src/index-v1.3.js
       - name: Guard active Worker entrypoint
-        run: grep -q '"main": "src/index-v1.3.js"' wrangler.jsonc
+        run: |
+          grep -q '"main": "src/index-v1.3.js"' wrangler.jsonc
