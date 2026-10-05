@@ -17,10 +17,25 @@ jobs:
         with:
           node-version: 22
       - name: Syntax check browser Worker
-        run: node --check src/index.js
+        run: |
+          node --check src/index.js
+          node --check src/index-v1.3.js
       - name: Guard separate Worker name
         run: |
           grep -q '"name": "keiba-lab-app"' wrangler.jsonc
           ! grep -q '"name": "keiba-lab-api"' wrangler.jsonc
       - name: Guard production API wiring
         run: grep -q 'https://keiba-lab-api.sekai-no-bancyou.workers.dev' src/index.js
+      - name: Guard Decision LAB browser contract
+        run: |
+          grep -q '/v1/lab/decision-lab' src/index-v1.3.js
+          grep -q '反証' src/index-v1.3.js
+          grep -q '見逃し馬' src/index-v1.3.js
+          grep -q '3×3' src/index-v1.3.js
+          grep -q 'WHY' src/index-v1.3.js
+          grep -q '感度分析' src/index-v1.3.js
+          grep -q '自動ウェイト変更なし' src/index-v1.3.js
+          grep -q '結果リーク' src/index-v1.3.js
+      - name: Guard active Worker entrypoint
+        run: |
+          grep -q '"main": "src/index-v1.3.js"' wrangler.jsonc
