@@ -43,10 +43,12 @@ jobs:
           set -euo pipefail
           last=''
           for attempt in $(seq 1 24); do
+            health="$(curl -fsS --max-time 10 "$PRODUCTION_URL/health" 2>/dev/null || true)"
             html="$(curl -fsS --max-time 10 "$PRODUCTION_URL/" 2>/dev/null || true)"
-            last="$html"
-            if grep -q "APP_VERSION='${EXPECTED_VERSION}.0'" <<<"$html" && grep -q 'KEIBA LABO 本番稼働' <<<"$html" && grep -q 'productionStatus' <<<"$html"; then
-              echo "Production browser is serving APP v${EXPECTED_VERSION}.0"
+            last="$health"
+            actual="$(printf '%s' "$health" | jq -r '.version // empty' 2>/dev/null || true)"
+            if [[ "$actual" == "${EXPECTED_VERSION}.0" ]] && grep -q 'resultBlindReplay' <<<"$html" && grep -q '/v1/lab/replay' <<<"$html"; then
+              echo "Production browser is serving APP v${EXPECTED_VERSION}.0 with replay UI"
               exit 0
             fi
             sleep 5
