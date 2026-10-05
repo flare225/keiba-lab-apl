@@ -1,2 +1,0 @@
-import worker from '../src/index-v1.14.js';
-export default async function handler(req,res){const host=req.headers['x-forwarded-host']||req.headers.host||'localhost';const proto=req.headers['x-forwarded-proto']||'https';const path=req.headers['x-vercel-original-path']||req.url||'/';const response=await worker.fetch(new Request(`${proto}://${host}${path}`,{method:'GET',headers:req.headers}));res.status(response.status);response.headers.forEach((v,k)=>res.setHeader(k,v));res.send(Buffer.from(await response.arrayBuffer()));}
