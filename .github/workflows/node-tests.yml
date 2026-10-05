@@ -70,4 +70,5 @@ jobs:
           grep -q 'makeNoteDraft' src/index-v1.12.js
           grep -q 'dynamic-user-mark-audit' src/index-v1.12.js
       - name: Guard active Worker entrypoint
-        run: grep -q '"main": "src/index-v1.12.js"' wrangler.jsonc
+        run: |
+          grep -q '"main": "src/index-v1.12.js"' wrangler.jsonc
