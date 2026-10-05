@@ -1,11 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "keiba-lab-api",
+  "name": "keiba-lab-app",
   "main": "src/index.js",
   "compatibility_date": "2026-10-02",
-  "triggers": {
-    "crons": ["*/15 * * * *"]
-  },
   "observability": {
     "enabled": true
   }
