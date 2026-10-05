@@ -1,0 +1,66 @@
+name: App production smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-production-smoke
+  cancel-in-progress: true
+
+env:
+  PRODUCTION_URL: https://keiba-lab-app.sekai-no-bancyou.workers.dev
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve expected app version
+        id: expected
+        shell: bash
+        run: |
+          set -euo pipefail
+          entry="$(node - <<'NODE'
+          const fs=require('fs');
+          const x=fs.readFileSync('wrangler.jsonc','utf8');
+          const m=x.match(/"main"\s*:\s*"src\/index-v([^"]+)\.js"/);
+          if(!m)process.exit(2);
+          process.stdout.write(m[1]);
+          NODE
+          )"
+          echo "version=$entry" >> "$GITHUB_OUTPUT"
+      - name: Verify deployed app health
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.expected.outputs.version }}
+        run: |
+          set -euo pipefail
+          last=''
+          for attempt in $(seq 1 24); do
+            body="$(curl -fsS --max-time 10 "$PRODUCTION_URL/health" 2>/dev/null || true)"
+            last="$body"
+            actual="$(printf '%s' "$body" | jq -r '.version // empty' 2>/dev/null || true)"
+            ok="$(printf '%s' "$body" | jq -r '.ok // false' 2>/dev/null || true)"
+            if [[ "$ok" == "true" && "$actual" == "$EXPECTED_VERSION" ]]; then
+              echo "Browser app is serving v$actual"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "App did not converge to v$EXPECTED_VERSION" >&2
+          echo "$last" >&2
+          exit 1
+      - name: Verify visible production status
+        shell: bash
+        run: |
+          set -euo pipefail
+          html="$(curl -fsS --max-time 10 "$PRODUCTION_URL/")"
+          grep -q 'KEIBA LABO 本番稼働' <<<"$html"
+          grep -q 'productionStatus' <<<"$html"
+          grep -q '/v1/lab/deploy-check' <<<"$html"
