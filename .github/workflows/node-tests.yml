@@ -28,6 +28,7 @@ jobs:
           node --check src/index-v1.9.js
           node --check src/index-v1.10.js
           node --check src/index-v1.11.js
+          node --check src/index-v1.12.js
       - name: Guard separate Worker name
         run: |
           grep -q '"name": "keiba-lab-app"' wrangler.jsonc
@@ -62,6 +63,12 @@ jobs:
           grep -q '対象レース' src/index-v1.11.js
           grep -q 'dynamic-user-mark-audit' src/index-v1.11.js
           grep -q '完全版予想記事を生成中' src/index-v1.11.js
+      - name: Guard generic race operations contract
+        run: |
+          grep -q '/v1/lab/race-ops' src/index-v1.12.js
+          grep -q 'READY_PRE_RACE' src/index-v1.12.js
+          grep -q 'makeNoteDraft' src/index-v1.12.js
+          grep -q 'dynamic-user-mark-audit' src/index-v1.12.js
       - name: Guard active Worker entrypoint
         run: |
-          grep -q '"main": "src/index-v1.11.js"' wrangler.jsonc
+          grep -q '"main": "src/index-v1.12.js"' wrangler.jsonc
