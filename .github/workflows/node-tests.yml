@@ -27,7 +27,7 @@ jobs:
           node --check src/index-v1.8.js
           node --check src/index-v1.9.js
           node --check src/index-v1.10.js
-          node --check src/index-v1.11.js
+          node --check src/index-v1.11.js\n          node --check src/index-v1.12.js
       - name: Guard separate Worker name
         run: |
           grep -q '"name": "keiba-lab-app"' wrangler.jsonc
