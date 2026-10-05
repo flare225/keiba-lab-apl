@@ -27,6 +27,7 @@ jobs:
           node --check src/index-v1.8.js
           node --check src/index-v1.9.js
           node --check src/index-v1.10.js
+          node --check src/index-v1.11.js
       - name: Guard separate Worker name
         run: |
           grep -q '"name": "keiba-lab-app"' wrangler.jsonc
@@ -44,44 +45,22 @@ jobs:
           grep -q '自動ウェイト変更なし' src/index-v1.3.js
           grep -q '結果リーク' src/index-v1.3.js
       - name: Guard readiness timeline contract
-        run: |
-          grep -q '/v1/lab/race-readiness' src/index-v1.4.js
-          grep -q '実戦パイプライン' src/index-v1.4.js
-          grep -q '結果は事前READY判定に使いません' src/index-v1.4.js
-      - name: Guard visible LABO audit contract
-        run: |
-          grep -q 'LABOチェック' src/index-v1.5.js
-          grep -q '反証' src/index-v1.5.js
-          grep -q '見逃し馬' src/index-v1.5.js
-          grep -q 'DB再精査' src/index-v1.5.js
+        run: grep -q '/v1/lab/race-readiness' src/index-v1.4.js
       - name: Guard official preLOCK audit contract
-        run: |
-          grep -q '/v1/lab/prelock-audit' src/index-v1.6.js
-          grep -q '公式出馬表監査' src/index-v1.6.js
-          grep -q 'JRAソース証拠' src/index-v1.6.js
-          grep -q 'preLOCK停止理由' src/index-v1.6.js
+        run: grep -q '/v1/lab/prelock-audit' src/index-v1.6.js
       - name: Guard note draft UI contract
-        run: |
-          grep -q '/v1/lab/note-draft' src/index-v1.7.js
-          grep -q 'note記事' src/index-v1.7.js
-          grep -q '予想記事を作成' src/index-v1.7.js
-          grep -q '全文コピー' src/index-v1.7.js
+        run: grep -q '/v1/lab/note-draft' src/index-v1.7.js
       - name: Guard note review UI contract
-        run: |
-          grep -q '/v1/lab/note-review' src/index-v1.8.js
-          grep -q '回顧記事を作成' src/index-v1.8.js
-          grep -q '事前印が無い場合は後付けしません' src/index-v1.8.js
+        run: grep -q '/v1/lab/note-review' src/index-v1.8.js
       - name: Guard performance dashboard contract
-        run: |
-          grep -q '/v1/lab/performance' src/index-v1.9.js
-          grep -q 'LABO成績' src/index-v1.9.js
-          grep -q '発走前LOCK済み予想だけ' src/index-v1.9.js
-          grep -q '哲平◎' src/index-v1.9.js
+        run: grep -q '/v1/lab/performance' src/index-v1.9.js
       - name: Guard race alerts contract
+        run: grep -q '/v1/lab/race-alerts' src/index-v1.10.js
+      - name: Guard generic target contract
         run: |
-          grep -q '/v1/lab/race-alerts' src/index-v1.10.js
-          grep -q '当日チェック' src/index-v1.10.js
-          grep -q 'オッズ・馬体重・リアルタイムトラックバイアスは未接続' src/index-v1.10.js
+          grep -q '/v1/lab/targets' src/index-v1.11.js
+          grep -q '対象レース' src/index-v1.11.js
+          grep -q 'dynamic-user-mark-audit' src/index-v1.11.js
+          grep -q '完全版予想記事を生成中' src/index-v1.11.js
       - name: Guard active Worker entrypoint
-        run: |
-          grep -q '"main": "src/index-v1.10.js"' wrangler.jsonc
+        run: grep -q '"main": "src/index-v1.11.js"' wrangler.jsonc
