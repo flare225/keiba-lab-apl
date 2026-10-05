@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   try {
     const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
     const proto = req.headers['x-forwarded-proto'] || 'https';
-    const originalPath = req.headers['x-vercel-original-path'] || '/';
+    const originalPath = req.headers['x-vercel-original-path'] || req.url || '/';
     const url = `${proto}://${host}${originalPath}`;
     const request = new Request(url, { method: 'GET', headers: req.headers });
     const response = await worker.fetch(request);
