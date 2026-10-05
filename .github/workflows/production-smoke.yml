@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PRODUCTION_URL: https://keiba-lab-app.sekai-no-bancyou.workers.dev
+  PRODUCTION_URL: https://keiba-lab-apl.vercel.app
 
 jobs:
   smoke:
