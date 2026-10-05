@@ -1,0 +1,26 @@
+name: Browser tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check browser Worker
+        run: node --check src/index.js
+      - name: Guard separate Worker name
+        run: |
+          grep -q '"name": "keiba-lab-app"' wrangler.jsonc
+          ! grep -q '"name": "keiba-lab-api"' wrangler.jsonc
+      - name: Guard production API wiring
+        run: grep -q 'https://keiba-lab-api.sekai-no-bancyou.workers.dev' src/index.js

@@ -1,63 +1,23 @@
-const json = (data, status = 200) =>
-  new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET,OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-  });
-
-export default {
-  async fetch(request, env) {
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,OPTIONS", "access-control-allow-headers": "content-type" } });
-
-    const url = new URL(request.url);
-
-    if (url.pathname === "/" || url.pathname === "/health") {
-      return json({
-        ok: true,
-        service: "keiba-lab-api",
-        version: "0.1.0",
-        updated_at: new Date().toISOString(),
-        missing: env.DB ? [] : ["D1 binding: DB"],
-      });
-    }
-
-    if (url.pathname === "/v1/meetings/today") {
-      if (!env.DB) {
-        return json({ ok: false, error: "D1 binding DB is not configured", meetings: [] }, 503);
-      }
-
-      const today = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Tokyo",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(new Date());
-
-      try {
-        const result = await env.DB.prepare(
-          `SELECT * FROM races WHERE race_date = ? ORDER BY venue, race_no`
-        ).bind(today).all();
-
-        return json({
-          ok: true,
-          date: today,
-          updated_at: new Date().toISOString(),
-          meetings: result.results ?? [],
-        });
-      } catch (error) {
-        return json({ ok: false, error: String(error), meetings: [] }, 500);
-      }
-    }
-
-    return json({ ok: false, error: "Not Found" }, 404);
-  },
-
-  async scheduled(event, env, ctx) {
-    // Cron entry point. Data acquisition/normalization is added in the next stage.
-    console.log("keiba-lab scheduled update", new Date(event.scheduledTime).toISOString());
-  },
-};
+const API='https://keiba-lab-api.sekai-no-bancyou.workers.dev';
+const html=String.raw`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1118"><title>KEIBA LABO</title><style>
+:root{color-scheme:dark;--bg:#081018;--panel:#101a25;--panel2:#152230;--line:#26384a;--text:#f4f7fa;--muted:#8fa4b8;--ok:#54d58c;--warn:#f0bd59;--bad:#ff7373;--accent:#58a6ff}*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#081018,#0c1620 42%,#081018);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}.wrap{max-width:980px;margin:auto;padding:18px 14px 88px}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.brand{font-weight:900;letter-spacing:.08em;font-size:21px}.brand span{color:var(--accent)}.pill{font-size:12px;padding:6px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}.hero{padding:20px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(135deg,#132131,#0d1721);box-shadow:0 12px 36px #0005}.hero h1{font-size:25px;margin:0 0 7px}.hero p{margin:0;color:var(--muted);line-height:1.6}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}.k{font-size:12px;color:var(--muted)}.v{font-size:20px;font-weight:800;margin-top:5px}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}section{display:none;margin-top:14px}section.active{display:block}.section-title{font-size:15px;font-weight:800;margin:18px 2px 9px}.row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #223141}.row:last-child{border:0}.row .r{text-align:right;font-weight:700}.btn{border:0;border-radius:12px;padding:11px 14px;font-weight:800;background:var(--accent);color:#07111b;cursor:pointer}.btn.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}select,input{background:#0a131c;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;min-height:42px}.marks{display:grid;gap:8px}.markrow{display:grid;grid-template-columns:72px 1fr 72px;gap:8px}.markrow input{width:100%}.result{white-space:pre-wrap;font-size:12px;color:#c7d4e1;background:#081018;border:1px solid var(--line);border-radius:12px;padding:12px;max-height:360px;overflow:auto}.notice{font-size:12px;color:var(--muted);line-height:1.6}.nav{position:fixed;bottom:0;left:0;right:0;background:#0a121bd9;backdrop-filter:blur(16px);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:10}.navin{width:min(980px,100%);display:grid;grid-template-columns:repeat(4,1fr)}.tab{padding:12px 4px 13px;text-align:center;color:var(--muted);font-size:12px;cursor:pointer}.tab b{display:block;font-size:18px;margin-bottom:2px}.tab.active{color:var(--accent)}@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.hero h1{font-size:30px}.wrap{padding-top:26px}.marks{grid-template-columns:repeat(2,1fr)}}
+</style></head><body><div class="wrap"><header><div class="brand">KEIBA <span>LABO</span></div><div class="pill" id="clock">JST</div></header>
+<div class="hero"><h1>週末を、検証可能に。</h1><p>公式データ・LABO分析・人間の印を分離して照合。サウジRCの事前LOCKまで同じ画面で追跡する。</p><div class="controls"><button class="btn" onclick="refreshAll()">最新状態を取得</button><span class="pill" id="last">未取得</span></div></div>
+<section id="home" class="active"><div class="grid"><div class="card"><div class="k">API</div><div class="v" id="apiVer">—</div></div><div class="card"><div class="k">Cron</div><div class="v" id="cron">—</div></div><div class="card"><div class="k">サウジRC</div><div class="v" id="gate">—</div></div><div class="card"><div class="k">USER MARK</div><div class="v" id="markState">—</div></div></div><div class="section-title">システム状態</div><div class="card" id="sysRows"><div class="notice">「最新状態を取得」で本番APIを確認します。</div></div></section>
+<section id="race"><div class="section-title">サウジアラビアRC — 2026/10/10 東京11R</div><div class="card"><div class="row"><span>事前出走馬情報</span><span class="r" id="precard">—</span></div><div class="row"><span>公式番号付き出馬表</span><span class="r" id="official">—</span></div><div class="row"><span>馬場想定</span><span class="r"><select id="track"><option value="">未指定</option><option>良</option><option>稍重</option><option>重</option><option>不良</option></select></span></div><div class="row"><span>次工程</span><span class="r" id="nextGate">—</span></div><div class="controls"><button class="btn" onclick="loadRace()">ゲート再判定</button></div></div><div class="section-title">LOCKガード</div><div class="card notice">正式出馬表が完全保存され、馬場想定が明示され、preLOCK監査が通るまでLOCK可能とは表示しません。事前情報だけではLOCKしません。</div></section>
+<section id="marks"><div class="section-title">哲平の印 × LABO再精査</div><div class="card"><div class="controls"><select id="phase"><option value="initial">初期印</option><option value="post_draw">枠順後</option><option value="final">最終印</option></select><select id="markTrack"><option value="">馬場未指定</option><option>良</option><option>稍重</option><option>重</option><option>不良</option></select></div><p class="notice">馬番または馬名を入力して印を付ける。印はLABOスコアを変更せず、DBの客観評価と反証チェックします。最終印は馬場指定必須。</p><div class="marks" id="markRows"></div><div class="controls"><button class="btn" onclick="auditMarks()">DBで再精査</button><button class="btn secondary" onclick="addMarkRow()">＋ 印を追加</button></div></div><div class="section-title">監査結果</div><div class="result" id="auditResult">まだ監査していません。</div></section>
+<section id="ops"><div class="section-title">運用・監査</div><div class="card"><div class="row"><span>本番API</span><span class="r" id="opApi">—</span></div><div class="row"><span>カード保存</span><span class="r" id="opCard">—</span></div><div class="row"><span>印の永続保存</span><span class="r" id="opWrite">—</span></div><div class="row"><span>スコア改変</span><span class="r ok">無効</span></div></div><div class="section-title">方針</div><div class="card notice">表示上の「完了」は本番APIで確認できた項目だけ。公開待ち・未設定・証拠不足はそのまま表示し、推測でgreenにはしません。</div></section></div>
+<div class="nav"><div class="navin"><div class="tab active" data-id="home"><b>⌂</b>ホーム</div><div class="tab" data-id="race"><b>♞</b>レース</div><div class="tab" data-id="marks"><b>◎</b>印</div><div class="tab" data-id="ops"><b>✓</b>監査</div></div></div>
+<script>
+const API=${JSON.stringify(API)};const $=id=>document.getElementById(id);const esc=s=>String(s??'—').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+async function get(path){const r=await fetch(API+path);const j=await r.json();if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j}
+function cls(ok){return ok?'ok':'warn'}
+async function refreshAll(){try{const [d,s,c,m]=await Promise.all([get('/v1/lab/deploy-check'),get('/v1/lab/scheduler-status?limit=1'),get('/v1/lab/saudi-rc-operational-status'),get('/v1/lab/user-mark-capabilities')]);$('apiVer').textContent='v'+d.version;$('apiVer').className='v ok';$('cron').textContent=s.cronHeartbeat==='observed'?'稼働':'確認中';$('cron').className='v '+cls(s.cronHeartbeat==='observed');$('gate').textContent=c.nextGate||'—';$('gate').className='v '+cls(c.gates?.readyToSeal);$('markState').textContent='監査OK';$('markState').className='v ok';$('opApi').textContent='v'+d.version;$('opWrite').textContent=m.writeReady?'保存可能':'認証待ち';$('opWrite').className='r '+cls(m.writeReady);$('sysRows').innerHTML='<div class="row"><span>Build</span><span class="r">'+esc(d.build)+'</span></div><div class="row"><span>Cron heartbeat</span><span class="r">'+esc(s.cronHeartbeat)+'</span></div><div class="row"><span>USER MARK独立入力</span><span class="r ok">'+(m.principles?.humanMarksAreIndependentInput?'有効':'—')+'</span></div>';$('last').textContent=new Date().toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo'})+' 更新';await renderRace(c)}catch(e){$('last').textContent='取得失敗';$('sysRows').innerHTML='<div class="bad">'+esc(e.message)+'</div>'}}
+async function loadRace(){try{const t=$('track').value;const c=await get('/v1/lab/saudi-rc-operational-status'+(t?'?track='+encodeURIComponent(t):''));renderRace(c)}catch(e){$('nextGate').textContent=e.message}}
+function renderRace(c){$('precard').textContent=c.gates?.precardContextPublished?'保存済み':'公開待ち';$('precard').className='r '+cls(c.gates?.precardContextPublished);$('official').textContent=c.gates?.officialCardStored?'完全保存':'未保存';$('official').className='r '+cls(c.gates?.officialCardStored);$('nextGate').textContent=c.nextGate||'—';$('opCard').textContent=(c.storage?.storedRunnerRows||0)+' / '+(c.storage?.declaredRunnerCount||0)+'頭';}
+function addMarkRow(){const d=document.createElement('div');d.className='markrow';d.innerHTML='<select class="mk"><option>◎</option><option>○</option><option>▲</option><option>△</option><option>☆</option><option>注</option><option>消</option></select><input class="horse" placeholder="馬名（または馬番）"><button class="btn secondary" onclick="this.parentElement.remove()">削除</button>';$('markRows').appendChild(d)}
+async function auditMarks(){const phase=$('phase').value,track=$('markTrack').value;const marks=[...document.querySelectorAll('.markrow')].map(r=>{const v=r.querySelector('.horse').value.trim(),mark=r.querySelector('.mk').value;if(!v)return null;return /^\d+$/.test(v)?{horseNo:Number(v),mark}:{horseName:v,mark}}).filter(Boolean);if(!marks.length){$('auditResult').textContent='印を1頭以上入力してください。';return}const body={date:'2026-10-10',venue:'東京',raceNo:11,phase,marks};if(track)body.track=track;try{const r=await fetch(API+'/v1/lab/user-mark-audit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),j=await r.json();$('auditResult').textContent=JSON.stringify(j,null,2)}catch(e){$('auditResult').textContent='監査失敗: '+e.message}}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('section').forEach(x=>x.classList.remove('active'));t.classList.add('active');$(t.dataset.id).classList.add('active')});setInterval(()=>$('clock').textContent=new Date().toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'})+' JST',1000);addMarkRow();addMarkRow();refreshAll();
+</script></body></html>`;
+const headers={'content-type':'text/html; charset=UTF-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'};
+export default{async fetch(request){const u=new URL(request.url);if(u.pathname==='/health')return new Response(JSON.stringify({ok:true,service:'keiba-lab-app',version:'1.0.0',api:API}),{headers:{'content-type':'application/json; charset=UTF-8'}});if(u.pathname==='/'||u.pathname==='/index.html')return new Response(html,{headers});return new Response('Not Found',{status:404})}};
