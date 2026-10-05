@@ -25,6 +25,7 @@ jobs:
           node --check src/index-v1.6.js
           node --check src/index-v1.7.js
           node --check src/index-v1.8.js
+          node --check src/index-v1.9.js
       - name: Guard separate Worker name
         run: |
           grep -q '"name": "keiba-lab-app"' wrangler.jsonc
@@ -69,6 +70,12 @@ jobs:
           grep -q '/v1/lab/note-review' src/index-v1.8.js
           grep -q '回顧記事を作成' src/index-v1.8.js
           grep -q '事前印が無い場合は後付けしません' src/index-v1.8.js
+      - name: Guard performance dashboard contract
+        run: |
+          grep -q '/v1/lab/performance' src/index-v1.9.js
+          grep -q 'LABO成績' src/index-v1.9.js
+          grep -q '発走前LOCK済み予想だけ' src/index-v1.9.js
+          grep -q '哲平◎' src/index-v1.9.js
       - name: Guard active Worker entrypoint
         run: |
-          grep -q '"main": "src/index-v1.8.js"' wrangler.jsonc
+          grep -q '"main": "src/index-v1.9.js"' wrangler.jsonc
