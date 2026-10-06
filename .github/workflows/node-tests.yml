@@ -77,7 +77,10 @@ jobs:
           grep -q 'KEIBA LABO 本番稼働' src/index-v1.13.js
           grep -q 'productionStatus' src/index-v1.13.js
           grep -q 'visible-production-status' src/index-v1.13.js
-      - name: Guard Vercel v1.15 route\n        run: |\n          grep -q '/api/v115' vercel.json\n      - name: Guard Vercel browser entrypoint
+      - name: Guard Vercel v1.15 route
+        run: |
+          grep -q '/api/v115' vercel.json
+      - name: Guard Vercel browser entrypoint
         run: |
           grep -q "../src/index-v1.15.js" api/v115.js
       - name: Guard result-blind replay UI
