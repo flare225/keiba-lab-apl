@@ -24,7 +24,7 @@ const enhancement=String.raw`
 .precard-race-meta{color:var(--muted);font-size:11px}
 .precard-missing{padding:9px;border-radius:9px;background:#2a2112;color:#f0bd59;font-size:12px}
 .precard-empty{padding:10px;border-radius:9px;background:var(--soft);color:var(--muted);font-size:12px}
-.precard-guard{margin-top:10px;padding:9px 10px;border-radius:10px;background:#101d28;color:#c7d4e1;font-size:11px}
+.precard-refresh-row{margin:10px 0}.precard-refresh-row .btn{width:100%;white-space:normal;line-height:1.4}.precard-guard{margin-top:10px;padding:9px 10px;border-radius:10px;background:#101d28;color:#c7d4e1;font-size:11px}
 .precard-raw{margin-top:12px}
 .precard-raw summary{color:var(--muted);font-size:12px;cursor:pointer}
 .precard-raw .result{margin-top:8px}
@@ -36,7 +36,7 @@ const enhancement=String.raw`
  if(!raw)return;
  const panel=document.createElement('div');
  panel.className='precard-panel';
- panel.innerHTML='<div class="precard-title"><h3>DBで仮比較</h3><span class="precard-label">想定馬・馬番未確定</span></div><p class="precard-explain">付けた印ごとに、対象日の前までのDB直近最大8走を表示します。上がり3F・走破時計・通過順を確認できます。履歴が少ない馬は不足のまま表示します。</p><div id="precardIdentity" class="precard-empty" aria-live="polite"></div><div id="precardPreview" class="precard-empty" aria-live="polite">印を入力して「DBで再精査」を押すと、過去データを表示します。</div><div class="precard-guard">この欄は過去データの参考比較です。今回の予想スコアや印を作成・変更せず、馬の順位付け・正式予想・事前LOCKには使いません。対象レース当日以降の結果は参照しません。</div>';
+ panel.innerHTML='<div class="precard-title"><h3>DBで仮比較</h3><span class="precard-label">想定馬・馬番未確定</span></div><p class="precard-explain">付けた印ごとに、対象日の前までのDB直近最大8走を表示します。上がり3F・走破時計・通過順を確認できます。履歴が少ない馬は不足のまま表示します。</p><div id="precardIdentity" class="precard-empty" aria-live="polite"></div><div class="precard-refresh-row"><button type="button" id="precardRefresh" class="btn secondary">JRA想定馬情報を更新して仮比較</button></div><div id="precardPreview" class="precard-empty" aria-live="polite">印を入力して「DBで再精査」を押すと、過去データを表示します。</div><div class="precard-guard">この欄は過去データの参考比較です。今回の予想スコアや印を作成・変更せず、馬の順位付け・正式予想・事前LOCKには使いません。対象レース当日以降の結果は参照しません。</div>';
  const details=document.createElement('details');
  details.className='precard-raw';
  details.innerHTML='<summary>監査データの詳細を表示</summary>';
@@ -47,7 +47,7 @@ const enhancement=String.raw`
  const esc=value=>String(value??'—').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
  const val=(x,unit='')=>x==null?'未取得':esc(x)+unit;
  function render(data){
-  if(!data?.ok){out.className='precard-missing';out.textContent=data?.error||'仮比較を取得できませんでした。';return}
+  if(!data?.ok){out.className='precard-missing';out.textContent=String(data?.error||'仮比較を取得できませんでした.').includes('pre-card runner context is not published/stored yet')?'想定馬情報がまだDBにありません。JRA公開後に「JRA想定馬情報を更新して仮比較」を押してください。':(data?.error||'仮比較を取得できませんでした。');return}
   const marked=data.audit?.marked||[];
   const evidence=data.audit?.historySidecar||[];
   if(!marked.length){out.className='precard-empty';out.textContent='監査対象の印がありません。';return}
@@ -73,6 +73,33 @@ const enhancement=String.raw`
   if(identity)identity.textContent=data.audit?.mode==='precard-context-only'?'JRAの出走想定馬情報との照合：一致。馬番・LABO順位・スコアは未確定です。':'公式カードとの照合済みデータです。';
  }
  const originalFetch=window.fetch.bind(window);
+ const refreshButton=panel.querySelector('#precardRefresh');
+ refreshButton?.addEventListener('click',async()=>{
+  const identity=document.getElementById('precardIdentity');
+  refreshButton.disabled=true;
+  refreshButton.textContent='JRAの公開状況を確認中…';
+  out.className='precard-empty';
+  out.textContent='公式ページを確認して、公開済みなら想定馬情報をDBに取り込みます。';
+  try{
+   const response=await originalFetch('https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/precard-context-ingest?race_key='+encodeURIComponent('2026-10-10:東京:11'));
+   const result=await response.json();
+   if(!result?.published){
+    out.className='precard-missing';
+    out.textContent=result?.status==='not-published'?'JRA公式ページは確認済みですが、出走馬情報はまだ公開予定表示です。公開後にもう一度押してください。':String(result?.error||result?.status||'想定馬情報をまだ取り込めませんでした。');
+    return;
+   }
+   if(identity)identity.textContent='JRA出走想定馬情報をDBへ保存しました（'+String(result.parsedCount??result.saved??0)+'頭）。';
+   const hasMarks=[...document.querySelectorAll('.markrow .horse')].some(input=>input.value.trim());
+   if(hasMarks&&typeof window.auditMarks==='function')await window.auditMarks();
+   else{out.className='precard-empty';out.textContent='想定馬情報を保存しました。印を入力して「DBで再精査」を押してください。'}
+  }catch(error){
+   out.className='precard-missing';
+   out.textContent='想定馬情報の更新に失敗しました：'+String(error?.message||error);
+  }finally{
+   refreshButton.disabled=false;
+   refreshButton.textContent='JRA想定馬情報を更新して仮比較';
+  }
+ });
  window.fetch=async(...args)=>{
   const url=String(args[0]?.url||args[0]||'');
   const isAudit=url.includes('/v1/lab/user-mark-audit')&&String(args[1]?.method||'GET').toUpperCase()==='POST';
