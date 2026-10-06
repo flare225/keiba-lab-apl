@@ -117,6 +117,8 @@ jobs:
       - name: Guard pre-card DB preview
         run: |
           grep -q 'precard-mark-db-preview' src/index-v1.19.js
+          grep -q "document.createElement('div')" src/index-v1.19.js
+          ! grep -q "document.createElement('section')" src/index-v1.19.js
           grep -q 'DBで仮比較' src/index-v1.19.js
           grep -q 'historical-last3f-corner-cards' src/index-v1.19.js
           grep -q '今回の予想スコアや印を作成・変更せず' src/index-v1.19.js
