@@ -47,8 +47,8 @@ jobs:
             html="$(curl -fsS --max-time 10 "$PRODUCTION_URL/" 2>/dev/null || true)"
             last="$health"
             actual="$(printf '%s' "$health" | jq -r '.version // empty' 2>/dev/null || true)"
-            if [[ "$actual" == "${EXPECTED_VERSION}.0" ]] && grep -q 'resultBlindReplay' <<<"$html" && grep -q '/v1/lab/replay' <<<"$html"; then
-              echo "Production browser is serving APP v${EXPECTED_VERSION}.0 with replay UI"
+            if [[ "$actual" == "${EXPECTED_VERSION}.0" ]] && grep -q 'resultBlindReplay' <<<"$html" && grep -q '/v1/lab/replay' <<<"$html" && grep -q '実際の上位3頭' <<<"$html" && grep -q '完走馬の上がり3F' <<<"$html"; then
+              echo "Production browser is serving APP v${EXPECTED_VERSION}.0 with readable replay results"
               exit 0
             fi
             sleep 5
