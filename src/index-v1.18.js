@@ -3,6 +3,22 @@ import app from './index-v1.17.js';
 const VERSION='1.18.0';
 const enhancement=String.raw`
 <style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{font-size:15px;line-height:1.55}
+.wrap{padding:16px 12px calc(100px + env(safe-area-inset-bottom))}
+.card{line-height:1.55}
+.section-title{font-size:16px}
+.k{font-size:13px}
+.notice,.pill{font-size:13px}
+.row{line-height:1.55}
+select,input{font-size:16px;min-height:44px}
+.btn,.tab{min-height:44px}
+.tab{font-size:13px}
+.result{font-size:13px;line-height:1.7;max-height:min(420px,65vh)}
+.nav{padding-bottom:env(safe-area-inset-bottom)}
+:where(button,a,input,select,[tabindex]):focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.6;cursor:wait}
+@media(max-width:520px){.wrap{padding-left:11px;padding-right:11px}.hero{padding:16px}.card{padding:13px}.tab{padding:10px 3px 12px}}
 .replay-compare{
   margin:12px 0;
   padding:14px;
@@ -112,7 +128,7 @@ export default{
   const url=new URL(request.url);
   if(url.pathname==='/health')return new Response(JSON.stringify({
    ok:true,service:'keiba-lab-app',version:VERSION,
-   features:['result-blind-replay-ui','replay-prior-history-hydration-visible','replay-result-comparison-after-freeze','official-last3f-comparison','mobile-readable-result-cards','mainichi-okan-replay-preset','kyoto-daishoten-replay-preset']
+   features:['result-blind-replay-ui','replay-prior-history-hydration-visible','replay-result-comparison-after-freeze','official-last3f-comparison','mobile-readable-result-cards','touch-friendly-global-styles','mainichi-okan-replay-preset','kyoto-daishoten-replay-preset']
   }),{headers:{'content-type':'application/json; charset=UTF-8','cache-control':'no-store'}});
   const response=await app.fetch(request,env,ctx);
   if(!response.ok||!(response.headers.get('content-type')||'').includes('text/html'))return response;
