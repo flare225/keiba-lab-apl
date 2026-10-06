@@ -36,7 +36,7 @@ const enhancement=String.raw`
  if(!raw)return;
  const panel=document.createElement('section');
  panel.className='precard-panel';
- panel.innerHTML='<div class="precard-title"><h3>DBで仮比較</h3><span class="precard-label">想定馬・馬番未確定</span></div><p class="precard-explain">付けた印ごとに、対象日の前までのDB直近最大8走を表示します。上がり3F・走破時計・通過順を確認できます。履歴が少ない馬は不足のまま表示します。</p><div id="precardPreview" class="precard-empty" aria-live="polite">印を入力して「DBで再精査」を押すと、過去データを表示します。</div><div class="precard-guard">この欄は過去データの参考比較です。今回の予想スコアや印を作成・変更せず、馬の順位付け・正式予想・事前LOCKには使いません。対象レース当日以降の結果は参照しません。</div>';
+ panel.innerHTML='<div class="precard-title"><h3>DBで仮比較</h3><span class="precard-label">想定馬・馬番未確定</span></div><p class="precard-explain">付けた印ごとに、対象日の前までのDB直近最大8走を表示します。上がり3F・走破時計・通過順を確認できます。履歴が少ない馬は不足のまま表示します。</p><div id="precardIdentity" class="precard-empty" aria-live="polite"></div><div id="precardPreview" class="precard-empty" aria-live="polite">印を入力して「DBで再精査」を押すと、過去データを表示します。</div><div class="precard-guard">この欄は過去データの参考比較です。今回の予想スコアや印を作成・変更せず、馬の順位付け・正式予想・事前LOCKには使いません。対象レース当日以降の結果は参照しません。</div>';
  const details=document.createElement('details');
  details.className='precard-raw';
  details.innerHTML='<summary>監査データの詳細を表示</summary>';
@@ -69,7 +69,8 @@ const enhancement=String.raw`
    const sparse=Number(s.finishedStarts||s.storedStarts||0)<3?'<div class="precard-missing">履歴が3走未満のため参考量は少なめです。未取得項目をゼロ扱いしません。</div>':'';
    return '<article class="precard-horse"><div class="precard-horse-head"><span><b class="precard-mark">'+esc(h.mark)+'</b>　<span class="precard-horse-name">'+esc(h.horseName)+'</span></span><span class="precard-starts">'+val(s.finishedStarts??s.storedStarts,'走を集計')+'</span></div>'+stats+sparse+empty+(races?'<div>'+races+'</div>':'')+'</article>';
   }).join('');
-  if(data.audit?.mode==='precard-context-only')out.insertAdjacentHTML('beforebegin','<div class="precard-empty">JRAの出走想定馬情報との照合：一致。馬番・LABO順位・スコアは未確定です。</div>');
+  const identity=document.getElementById('precardIdentity');
+  if(identity)identity.textContent=data.audit?.mode==='precard-context-only'?'JRAの出走想定馬情報との照合：一致。馬番・LABO順位・スコアは未確定です。':'公式カードとの照合済みデータです。';
  }
  const originalFetch=window.fetch.bind(window);
  window.fetch=async(...args)=>{
