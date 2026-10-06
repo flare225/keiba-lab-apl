@@ -35,6 +35,7 @@ jobs:
           node --check src/index-v1.16.js
           node --check src/index-v1.17.js
           node --check src/index-v1.18.js
+          node --check src/index-v1.19.js
       - name: Guard separate Worker name
         run: |
           grep -q '"name": "keiba-lab-app"' wrangler.jsonc
@@ -103,7 +104,7 @@ jobs:
           grep -q '実着順はREPLAYスコアへ戻しません' src/index-v1.17.js
       - name: Guard Vercel replay comparison delivery
         run: |
-          grep -q "../src/index-v1.18.js" api/v116.js
+          grep -q "../src/index-v1.19.js" api/v116.js
           grep -q 'official-last3f-comparison' src/index-v1.17.js
           grep -q '上がり3F' src/index-v1.17.js
           grep -q 'mobile-readable-result-cards' src/index-v1.18.js
@@ -113,6 +114,12 @@ jobs:
           grep -q 'touch-friendly-global-styles' src/index-v1.18.js
           grep -q ':focus-visible' src/index-v1.18.js
           grep -q 'safe-area-inset-bottom' src/index-v1.18.js
+      - name: Guard pre-card DB preview
+        run: |
+          grep -q 'precard-mark-db-preview' src/index-v1.19.js
+          grep -q 'DBで仮比較' src/index-v1.19.js
+          grep -q 'historical-last3f-corner-cards' src/index-v1.19.js
+          grep -q '今回の予想スコアや印を作成・変更せず' src/index-v1.19.js
       - name: Guard active Worker entrypoint
         run: |
           grep -q '"main": "src/index-v1.18.js"' wrangler.jsonc
