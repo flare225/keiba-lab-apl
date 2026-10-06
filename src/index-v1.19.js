@@ -34,7 +34,7 @@ const enhancement=String.raw`
 (()=>{
  const raw=document.getElementById('auditResult');
  if(!raw)return;
- const panel=document.createElement('section');
+ const panel=document.createElement('div');
  panel.className='precard-panel';
  panel.innerHTML='<div class="precard-title"><h3>DBで仮比較</h3><span class="precard-label">想定馬・馬番未確定</span></div><p class="precard-explain">付けた印ごとに、対象日の前までのDB直近最大8走を表示します。上がり3F・走破時計・通過順を確認できます。履歴が少ない馬は不足のまま表示します。</p><div id="precardIdentity" class="precard-empty" aria-live="polite"></div><div id="precardPreview" class="precard-empty" aria-live="polite">印を入力して「DBで再精査」を押すと、過去データを表示します。</div><div class="precard-guard">この欄は過去データの参考比較です。今回の予想スコアや印を作成・変更せず、馬の順位付け・正式予想・事前LOCKには使いません。対象レース当日以降の結果は参照しません。</div>';
  const details=document.createElement('details');
@@ -74,12 +74,16 @@ const enhancement=String.raw`
  }
  const originalFetch=window.fetch.bind(window);
  window.fetch=async(...args)=>{
-  const response=await originalFetch(...args);
   const url=String(args[0]?.url||args[0]||'');
-  if(url.includes('/v1/lab/user-mark-audit')&&String(args[1]?.method||'GET').toUpperCase()==='POST'){
-   try{render(await response.clone().json())}catch{out.className='precard-missing';out.textContent='監査結果の読み込みに失敗しました。'}
+  const isAudit=url.includes('/v1/lab/user-mark-audit')&&String(args[1]?.method||'GET').toUpperCase()==='POST';
+  try{
+   const response=await originalFetch(...args);
+   if(isAudit){try{render(await response.clone().json())}catch{out.className='precard-missing';out.textContent='監査結果の読み込みに失敗しました。'}}
+   return response;
+  }catch(error){
+   if(isAudit){out.className='precard-missing';out.textContent='API通信に失敗しました：'+String(error?.message||error)}
+   throw error;
   }
-  return response;
  };
 })();
 </script>`;
