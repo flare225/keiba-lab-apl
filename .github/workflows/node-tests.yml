@@ -110,6 +110,9 @@ jobs:
           grep -q 'role="listitem"' src/index-v1.18.js
           grep -q 'compare-top3' src/index-v1.18.js
           grep -q '@media(max-width:560px)' src/index-v1.18.js
+          grep -q 'touch-friendly-global-styles' src/index-v1.18.js
+          grep -q ':focus-visible' src/index-v1.18.js
+          grep -q 'safe-area-inset-bottom' src/index-v1.18.js
       - name: Guard active Worker entrypoint
         run: |
           grep -q '"main": "src/index-v1.18.js"' wrangler.jsonc
