@@ -100,6 +100,11 @@ jobs:
           grep -q 'REPLAY結果比較' src/index-v1.17.js
           grep -q '/v1/lab/replay-compare' src/index-v1.17.js
           grep -q '実着順はREPLAYスコアへ戻しません' src/index-v1.17.js
+      - name: Guard Vercel replay comparison delivery
+        run: |
+          grep -q "../src/index-v1.17.js" api/v116.js
+          grep -q 'official-last3f-comparison' src/index-v1.17.js
+          grep -q '上がり3F' src/index-v1.17.js
       - name: Guard active Worker entrypoint
         run: |
           grep -q '"main": "src/index-v1.17.js"' wrangler.jsonc
