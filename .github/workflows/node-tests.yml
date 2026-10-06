@@ -32,6 +32,7 @@ jobs:
           node --check src/index-v1.13.js
           node --check src/index-v1.14.js
           node --check src/index-v1.15.js
+          node --check src/index-v1.16.js
       - name: Guard separate Worker name
         run: |
           grep -q '"name": "keiba-lab-app"' wrangler.jsonc
@@ -95,4 +96,4 @@ jobs:
           grep -q 'RESULT-BLIND REPLAY' src/index-v1.15.js
       - name: Guard active Worker entrypoint
         run: |
-          grep -q '"main": "src/index-v1.15.js"' wrangler.jsonc
+          grep -q '"main": "src/index-v1.16.js"' wrangler.jsonc
