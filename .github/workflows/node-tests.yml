@@ -33,6 +33,7 @@ jobs:
           node --check src/index-v1.14.js
           node --check src/index-v1.15.js
           node --check src/index-v1.16.js
+          node --check src/index-v1.17.js
       - name: Guard separate Worker name
         run: |
           grep -q '"name": "keiba-lab-app"' wrangler.jsonc
@@ -94,6 +95,11 @@ jobs:
           grep -q '毎日王冠をREPLAY' src/index-v1.15.js
           grep -q '京都大賞典をREPLAY' src/index-v1.15.js
           grep -q 'RESULT-BLIND REPLAY' src/index-v1.15.js
+      - name: Guard replay result comparison
+        run: |
+          grep -q 'REPLAY結果比較' src/index-v1.17.js
+          grep -q '/v1/lab/replay-compare' src/index-v1.17.js
+          grep -q '実着順はREPLAYスコアへ戻しません' src/index-v1.17.js
       - name: Guard active Worker entrypoint
         run: |
-          grep -q '"main": "src/index-v1.16.js"' wrangler.jsonc
+          grep -q '"main": "src/index-v1.17.js"' wrangler.jsonc
