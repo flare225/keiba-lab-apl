@@ -31,6 +31,7 @@ jobs:
           node --check src/index-v1.12.js
           node --check src/index-v1.13.js
           node --check src/index-v1.14.js
+          node --check src/index-v1.15.js
       - name: Guard separate Worker name
         run: |
           grep -q '"name": "keiba-lab-app"' wrangler.jsonc
@@ -78,12 +79,17 @@ jobs:
           grep -q 'visible-production-status' src/index-v1.13.js
       - name: Guard Vercel browser entrypoint
         run: |
-          grep -q "../src/index-v1.13.js" api/index.js
+          grep -q "../src/index-v1.15.js" api/index.js
       - name: Guard result-blind replay UI
         run: |
           grep -q '結果遮断REPLAY' src/index-v1.14.js
           grep -q '/v1/lab/replay' src/index-v1.14.js
           grep -q 'RESULT_BLIND_REPLAY' src/index-v1.14.js
+      - name: Guard replay presets
+        run: |
+          grep -q '毎日王冠をREPLAY' src/index-v1.15.js
+          grep -q '京都大賞典をREPLAY' src/index-v1.15.js
+          grep -q 'RESULT-BLIND REPLAY' src/index-v1.15.js
       - name: Guard active Worker entrypoint
         run: |
-          grep -q '"main": "src/index-v1.14.js"' wrangler.jsonc
+          grep -q '"main": "src/index-v1.15.js"' wrangler.jsonc
