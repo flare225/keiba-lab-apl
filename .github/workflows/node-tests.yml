@@ -34,6 +34,7 @@ jobs:
           node --check src/index-v1.15.js
           node --check src/index-v1.16.js
           node --check src/index-v1.17.js
+          node --check src/index-v1.18.js
       - name: Guard separate Worker name
         run: |
           grep -q '"name": "keiba-lab-app"' wrangler.jsonc
@@ -102,9 +103,13 @@ jobs:
           grep -q '実着順はREPLAYスコアへ戻しません' src/index-v1.17.js
       - name: Guard Vercel replay comparison delivery
         run: |
-          grep -q "../src/index-v1.17.js" api/v116.js
+          grep -q "../src/index-v1.18.js" api/v116.js
           grep -q 'official-last3f-comparison' src/index-v1.17.js
           grep -q '上がり3F' src/index-v1.17.js
+          grep -q 'mobile-readable-result-cards' src/index-v1.18.js
+          grep -q 'role="listitem"' src/index-v1.18.js
+          grep -q 'compare-top3' src/index-v1.18.js
+          grep -q '@media(max-width:560px)' src/index-v1.18.js
       - name: Guard active Worker entrypoint
         run: |
-          grep -q '"main": "src/index-v1.17.js"' wrangler.jsonc
+          grep -q '"main": "src/index-v1.18.js"' wrangler.jsonc
