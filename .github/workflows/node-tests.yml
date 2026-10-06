@@ -122,4 +122,4 @@ jobs:
           grep -q '今回の予想スコアや印を作成・変更せず' src/index-v1.19.js
       - name: Guard active Worker entrypoint
         run: |
-          grep -q '"main": "src/index-v1.18.js"' wrangler.jsonc
+          grep -q '"main": "src/index-v1.19.js"' wrangler.jsonc
