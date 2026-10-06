@@ -80,7 +80,7 @@ jobs:
           grep -q 'visible-production-status' src/index-v1.13.js
       - name: Guard Vercel v1.15 route
         run: |
-          grep -q '/api/v115' vercel.json
+          grep -q '/api/v116' vercel.json
       - name: Guard Vercel browser entrypoint
         run: |
           grep -q "../src/index-v1.15.js" api/v115.js
