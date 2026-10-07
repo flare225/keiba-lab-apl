@@ -49,7 +49,7 @@ jobs:
             actual="$(printf '%s' "$health" | jq -r '.version // empty' 2>/dev/null || true)"
             readable="$(printf '%s' "$health" | jq -r '.features | index("touch-friendly-global-styles") // empty' 2>/dev/null || true)"
             preview="$(printf '%s' "$health" | jq -r '.features | index("precard-mark-db-preview") // empty' 2>/dev/null || true)"
-            if [[ "$actual" == "${EXPECTED_VERSION}.0" && -n "$readable" && -n "$preview" ]] && grep -q 'DBで仮比較' <<<"$html" && grep -q '想定馬・馬番未確定' <<<"$html" && grep -q 'JRA想定馬情報を更新して仮比較' <<<"$html" && grep -q 'resultBlindReplay' <<<"$html" && grep -q '/v1/lab/replay' <<<"$html" && grep -q '実際の上位3頭' <<<"$html" && grep -q '完走馬の上がり3F' <<<"$html" && grep -q ':focus-visible' <<<"$html"; then
+            if [[ "$actual" == "${EXPECTED_VERSION}.0" && -n "$readable" && -n "$preview" ]] && grep -q 'full-runner-initial-comparison' <<<"$health" && grep -q 'アイルランドTの初期印・仮比較' <<<"$html" && grep -q '/v1/lab/mark-comparison' <<<"$html" && grep -q 'DBで仮比較' <<<"$html" && grep -q '想定馬・馬番未確定' <<<"$html" && grep -q 'JRA想定馬情報を更新して仮比較' <<<"$html" && grep -q 'resultBlindReplay' <<<"$html" && grep -q '/v1/lab/replay' <<<"$html" && grep -q '実際の上位3頭' <<<"$html" && grep -q '完走馬の上がり3F' <<<"$html" && grep -q ':focus-visible' <<<"$html"; then
               echo "Production browser is serving APP v${EXPECTED_VERSION}.0 with readable replay results"
               exit 0
             fi
