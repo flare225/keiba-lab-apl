@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import app,{VERSION,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
+import app,{VERSION,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
 test('inline marks use only current roster names, exclude stale horses and do not invent numbers',()=>{
  const roster=['ヴォンフレ','カムニャック','ラヴァンダ'];
  assert.deepEqual(selectedExpectedMarks(roster,{'ヴォンフレ':'注','カムニャック':'','ラヴァンダ':'○','別馬':'◎'}),[{horseName:'ヴォンフレ',mark:'注'},{horseName:'ラヴァンダ',mark:'○'}]);
@@ -41,4 +41,14 @@ test('returning home restores the home panel and resets a long-page scroll',asyn
  new Script(code+';openView("home");').runInNewContext(context);
  assert.deepEqual(nodes.filter(x=>x.active).map(x=>x.id),['home']);
  assert.equal(scroll.top,0);assert.equal(expanded,'false');assert.match(html,/id="goHome"/);
+});
+
+test('home next action preserves card gates and distinguishes unavailable state from ready',()=>{
+ assert.match(homeRaceSummary(null).missing.join(),/確認できません/);
+ const waiting=homeRaceSummary({ok:true,ops:{cardComplete:false,nextAction:'WAIT_OFFICIAL_CARD'}});
+ assert.match(waiting.missing.join(),/正式出馬表/);assert.equal(waiting.view,'marks');
+ const ready=homeRaceSummary({ok:true,ops:{cardComplete:true,prelockAllowed:true,predictionReady:true,userMarkReady:true,decisionReady:true,alertStatus:'OK',nextAction:'READY_PRE_RACE'}});
+ assert.deepEqual(ready.missing,[]);assert.match(ready.next,/当日/);
+ const blocked=homeRaceSummary({ok:true,ops:{cardComplete:true,prelockAllowed:true,predictionReady:true,userMarkReady:true,decisionReady:true,alertStatus:'BLOCK',nextAction:'RESOLVE_BLOCKER'}});
+ assert.match(blocked.missing.join(),/要確認/);
 });
