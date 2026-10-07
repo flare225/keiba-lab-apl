@@ -71,3 +71,7 @@ test('history provenance links reject unsafe destinations without hiding supplem
  for(const url of ['javascript:alert(1)','http://www.jra.go.jp/','https://www.jra.go.jp.evil.test/','https://user:pass@www.jra.go.jp/'])assert.equal(historySourceLinks({sourceUrl:url}).links.length,0);
  assert.equal(historySourceLinks({supplementalSourceUrl:'bad'}).supplemented,true);assert.deepEqual(historySourceLinks({}).links,[]);
 });
+
+test('history receipt still due is visible even with stored starts',()=>{
+ assert.deepEqual(historyCoverageSummary({runnerCount:2,withStoredHistory:2,pendingHorses:1,runners:[{horseName:'A',storedRows:5,due:true},{horseName:'B',storedRows:8,due:false}]}).pendingNames,['A']);
+});
