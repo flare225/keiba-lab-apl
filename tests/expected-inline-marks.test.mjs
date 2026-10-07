@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import app,{VERSION,cornerPositionSummary,historySourceLinks,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
+import app,{VERSION,orderComparedRunners,cornerPositionSummary,historySourceLinks,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
 test('inline marks use only current roster names, exclude stale horses and do not invent numbers',()=>{
  const roster=['ヴォンフレ','カムニャック','ラヴァンダ'];
  assert.deepEqual(selectedExpectedMarks(roster,{'ヴォンフレ':'注','カムニャック':'','ラヴァンダ':'○','別馬':'◎'}),[{horseName:'ヴォンフレ',mark:'注'},{horseName:'ラヴァンダ',mark:'○'}]);
@@ -83,4 +83,11 @@ test('checked empty history remains missing without appearing in the pending che
 test('corner summaries normalize field size and reject missing or impossible positions',()=>{
  const rows=[{cornerPositions:'1-1',fieldSize:10},{cornerPositions:'5-5-5-5',fieldSize:10},{cornerPositions:'10',fieldSize:10},{cornerPositions:'4-3',fieldSize:null},{cornerPositions:'11-2',fieldSize:10},{cornerPositions:'2=3',fieldSize:10}];
  assert.deepEqual(cornerPositionSummary(rows),{total:6,recorded:3,average:5.3,front:1,middle:1,back:1});assert.equal(cornerPositionSummary([]).average,null);
+});
+
+test('comparison display sorts without altering ranks and filters exact selected horses',()=>{
+ const rows=[{horseName:'カ',referenceRank:null},{horseName:'イ',referenceRank:1},{horseName:'ア',referenceRank:1}];
+ assert.deepEqual(orderComparedRunners(rows,[],'rank').map(x=>x.horseName),['ア','イ','カ']);
+ assert.deepEqual(orderComparedRunners(rows,[{horseName:'イ',mark:'消'}],'name',true),[rows[1]]);
+ assert.deepEqual(rows.map(x=>x.horseName),['カ','イ','ア']);assert.equal(rows[2].referenceRank,1);
 });
