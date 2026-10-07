@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import app,{VERSION,automaticHistoryProgress,orderComparedRunners,cornerPositionSummary,historySourceLinks,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
+import app,{VERSION,modelValidationSummary,automaticHistoryProgress,orderComparedRunners,cornerPositionSummary,historySourceLinks,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
 test('inline marks use only current roster names, exclude stale horses and do not invent numbers',()=>{
  const roster=['ヴォンフレ','カムニャック','ラヴァンダ'];
  assert.deepEqual(selectedExpectedMarks(roster,{'ヴォンフレ':'注','カムニャック':'','ラヴァンダ':'○','別馬':'◎'}),[{horseName:'ヴォンフレ',mark:'注'},{horseName:'ラヴァンダ',mark:'○'}]);
@@ -99,4 +99,9 @@ test('returning to foreground refreshes old progress but avoids repeated and hid
 test('home collection summary never credits unfinished or unobserved scheduled work',()=>{
  assert.match(automaticHistoryProgress({}),/未確認/);assert.match(automaticHistoryProgress({jobs:[{job:'history',heartbeat:'completion-unconfirmed',scheduled:{status:'running',result:{addedRows:10}}}]}),/完了記録を確認できません/);
  const jobs=[{job:'history',heartbeat:'observed',scheduled:{status:'collected',finishedAt:'2026-10-07T14:31:01Z',result:{addedRows:10}}}];assert.match(automaticHistoryProgress({jobs}),/10走追加/);jobs[0].scheduled.status='cooldown';assert.match(automaticHistoryProgress({jobs}),/取得間隔の待機/);
+});
+
+test('training and validation count gates never claim accuracy validation',()=>{
+ assert.match(modelValidationSummary({training:{eligibleRaces:30},candidateCreated:false}).stage,/作成前/);
+ const v=modelValidationSummary({candidateCreated:true,validation:{races:10,raceDays:2,canReviewCandidate:true},minimumValidationRaces:10,minimumValidationDays:2});assert.match(v.stage,/審査待ち/);assert.match(v.meaning,/未検証/);assert.match(v.progress,/10 \/ 10/);assert.match(modelValidationSummary({}).progress,/未確認/);
 });
