@@ -1,5 +1,5 @@
 import app from './index-v1.19.js';
-export const VERSION='1.21.0';
+export const VERSION='1.21.1';
 export function findComparedRunner(rows,mark){return rows.find(x=>mark.horseName?x.horseName===mark.horseName:mark.horseNo!=null&&x.horseNo===mark.horseNo);}
 export function selectedExpectedMarks(roster,values={}){const allowed=new Set(['◎','○','▲','△','☆','注','消']);return roster.filter(name=>allowed.has(values[name])).map(horseName=>({horseName,mark:values[horseName]}));}
 export const enhancement=String.raw`
@@ -7,7 +7,9 @@ export const enhancement=String.raw`
 .marks[hidden],#expectedInlineRoster[hidden]{display:none!important}
 .expected-inline-row{display:grid;grid-template-columns:minmax(0,1fr) 100px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.expected-inline-row label{font-size:16px;font-weight:750}.expected-inline-row select{width:100%;min-height:46px}.expected-inline-list{margin:12px 0}.expected-inline-note{font-size:13px;line-height:1.6;color:var(--muted)}
 .labo-main-link{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.labo-main-link a{display:block;padding:12px;border:1px solid var(--line);border-radius:12px;color:var(--accent);text-decoration:none}
-.labo-pool{overflow-x:auto;margin-top:12px}.labo-pool table{border-collapse:collapse;min-width:480px;width:100%;font-size:14px}.labo-pool th,.labo-pool td{padding:10px;text-align:left;border-bottom:1px solid var(--line)}
+.labo-pool{margin-top:12px;min-width:0}.labo-pool h4{margin:0 0 10px;font-size:15px}.labo-pool-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.labo-pool-card{min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.labo-pool-card h5{margin:0 0 10px;font-size:16px;overflow-wrap:anywhere}.labo-pool-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0}.labo-pool-stats div{min-width:0;text-align:center;padding:8px 2px;border-radius:8px;background:#0a131c}.labo-pool-stats dt{font-size:12px;color:var(--muted)}.labo-pool-stats dd{margin:3px 0 0;font-size:16px;font-weight:750;overflow-wrap:anywhere}
+.wrap,section,.card,.precard-panel,.precard-horses,.precard-horse,.expected-inline-list{min-width:0;max-width:100%}.card,.precard-panel,.expected-inline-row label,.prodmeta{overflow-wrap:anywhere}.expected-inline-row label{min-width:0}.result{overflow-wrap:anywhere;white-space:pre-wrap}.controls>*{min-width:0;max-width:100%}
+@media(max-width:600px){.labo-pool-list{grid-template-columns:minmax(0,1fr)}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.markrow{grid-template-columns:64px minmax(0,1fr) 64px;gap:6px}.expected-inline-row{grid-template-columns:minmax(0,1fr) 86px;gap:8px}.row{flex-wrap:wrap}.row>*{min-width:0;max-width:100%}.row .r{max-width:100%;text-align:left}select{max-width:100%}.decision-grid{grid-template-columns:minmax(0,1fr)}}
 .labo-comparison-title{font-weight:800;font-size:16px;margin:8px 0}.precard-race-meta{font-size:13px}.precard-explain,.precard-guard{font-size:13px}
 </style>
 <script>
@@ -47,7 +49,7 @@ export const enhancement=String.raw`
   out.innerHTML='<div class="labo-comparison-title">'+esc(label())+'</div><p>全'+value(a.runnerPool)+'頭中 '+value(a.scoredRunners)+'頭を仮評価。参考指数・馬場未指定なら馬場評価を保留。</p>'+human.map(m=>{
    const r=findComparedRunner(rows,m),a=r?.assessment||{},h=evidence.get(r?.horseName||m.horseName);
    return '<article class="precard-horse"><b>'+esc(m.mark)+' '+esc(r?.horseName||m.horseName||m.horseNo)+'</b><p>参考指数 '+value(a.evidenceScore)+' / 100 · 参考順位 '+value(r?.referenceRank,'位')+'</p>'+(h?.recent?.length?'<details><summary>根拠の過去走 '+h.recent.length+'走を見る</summary>'+h.recent.map(x=>'<div class="precard-race"><b>'+esc(x.date)+' '+esc(x.venue)+' '+esc(x.raceName)+' · '+value(x.finish,'着')+'</b><div class="precard-race-meta">'+esc(x.surface)+' '+value(x.distance,'m')+' / 時計 '+value(x.time)+'<br>通過 '+value(x.cornerPositions)+' / 上がり3F '+value(x.last3f,'秒')+'</div></div>').join('')+'</details>':'<p>履歴未取得・比較保留</p>')+'</article>';
-  }).join('')+'<div class="labo-pool"><table><caption>全馬の参考評価（印は点数に使いません）</caption><thead><tr><th>馬名</th><th>順位</th><th>参考指数</th><th>過去走</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.horseName)+'</td><td>'+value(r.referenceRank)+'</td><td>'+value(r.assessment?.evidenceScore)+'</td><td>'+value(r.assessment?.historyRows,'走')+'</td></tr>').join('')+'</tbody></table></div>';
+  }).join('')+'<div class="labo-pool"><h4>全馬の参考評価（印は点数に使いません）</h4><div class="labo-pool-list" role="list">'+rows.map(r=>'<article class="labo-pool-card" role="listitem"><h5>'+esc(r.horseName)+'</h5><dl class="labo-pool-stats"><div><dt>参考順位</dt><dd>'+value(r.referenceRank,'位')+'</dd></div><div><dt>参考指数</dt><dd>'+value(r.assessment?.evidenceScore)+'</dd></div><div><dt>過去走</dt><dd>'+value(r.assessment?.historyRows,'走')+'</dd></div></dl></article>').join('')+'</div></div>';
   identity.textContent=label()+' / 保存済みDBから比較。枠・馬番は正式出馬表で確認します。';
  }
  async function compare(force=false){
@@ -76,7 +78,7 @@ export const enhancement=String.raw`
 })();
 </script>`;
 export default{async fetch(request,env,ctx){
- if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks']},{headers:{'cache-control':'no-store'}});
+ if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards']},{headers:{'cache-control':'no-store'}});
  const r=await app.fetch(request,env,ctx);if(!r.ok||!r.headers.get('content-type')?.includes('text/html'))return r;
  return new Response((await r.text()).replace('<div class="k">サウジRC</div>','<div class="k">アイルランドT</div>').replace('</body>',enhancement+'</body>'),{status:r.status,headers:r.headers});
 }};
