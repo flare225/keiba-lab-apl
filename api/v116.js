@@ -1,4 +1,4 @@
-import worker from '../src/index-v1.19.js';
+import worker from '../src/index-v1.20.js';
 
 export default async function handler(req, res) {
   try {
@@ -16,3 +16,4 @@ export default async function handler(req, res) {
     res.status(500).json({ ok: false, error: String(error?.message || error) });
   }
 }
+
