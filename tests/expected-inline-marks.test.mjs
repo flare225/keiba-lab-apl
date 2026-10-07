@@ -37,7 +37,7 @@ test('returning home restores the home panel and resets a long-page scroll',asyn
  const tabs=nodes.filter(x=>x.id!=='system').map(x=>({dataset:{id:x.id},classList:{toggle(){}}}));
  let scroll=null,expanded=null;
  const code=html.match(/function openView\(id\)\{[^\n]+\}/)[0];
- const context={document:{querySelectorAll:s=>s==='section'?nodes:tabs,getElementById:()=>({querySelector:()=>null})},window:{scrollTo:v=>{scroll=v;}},openSystem:{setAttribute:(k,v)=>{expanded=v;}}};
+ const context={refreshReturningHome:()=>{},document:{querySelectorAll:s=>s==='section'?nodes:tabs,getElementById:()=>({querySelector:()=>null})},window:{scrollTo:v=>{scroll=v;}},openSystem:{setAttribute:(k,v)=>{expanded=v;}}};
  new Script(code+';openView("home");').runInNewContext(context);
  assert.deepEqual(nodes.filter(x=>x.active).map(x=>x.id),['home']);
  assert.equal(scroll.top,0);assert.equal(expanded,'false');assert.match(html,/id="goHome"/);
@@ -90,4 +90,8 @@ test('comparison display sorts without altering ranks and filters exact selected
  assert.deepEqual(orderComparedRunners(rows,[],'rank').map(x=>x.horseName),['ア','イ','カ']);
  assert.deepEqual(orderComparedRunners(rows,[{horseName:'イ',mark:'消'}],'name',true),[rows[1]]);
  assert.deepEqual(rows.map(x=>x.horseName),['カ','イ','ア']);assert.equal(rows[2].referenceRank,1);
+});
+
+test('returning to foreground refreshes old progress but avoids repeated and hidden fetches',async()=>{
+ const html=await(await app.fetch(new Request('https://example.com'))).text();const code=html.match(/function refreshReturningHome\(\)\{[^\n]+\}/)[0];let calls=0;const document={visibilityState:'visible'},context={document,Date:{now:()=>120000},learningCheckedAt:100000,refreshHomeLearning:()=>calls++};const script=new Script(code+';refreshReturningHome();');script.runInNewContext(context);assert.equal(calls,0);context.learningCheckedAt=0;document.visibilityState='hidden';script.runInNewContext(context);assert.equal(calls,0);document.visibilityState='visible';script.runInNewContext(context);assert.equal(calls,1);
 });
