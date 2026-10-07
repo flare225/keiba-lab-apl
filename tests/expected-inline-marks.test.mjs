@@ -75,3 +75,7 @@ test('history provenance links reject unsafe destinations without hiding supplem
 test('history receipt still due is visible even with stored starts',()=>{
  assert.deepEqual(historyCoverageSummary({runnerCount:2,withStoredHistory:2,pendingHorses:1,runners:[{horseName:'A',storedRows:5,due:true},{horseName:'B',storedRows:8,due:false}]}).pendingNames,['A']);
 });
+
+test('checked empty history remains missing without appearing in the pending check list',()=>{
+ const s=historyCoverageSummary({runnerCount:1,withStoredHistory:0,pendingHorses:0,runners:[{horseName:'A',storedRows:0,due:false,collectionState:'checked-empty'}]});assert.equal(s.stored,0);assert.equal(s.pending,0);assert.deepEqual(s.pendingNames,[]);
+});
