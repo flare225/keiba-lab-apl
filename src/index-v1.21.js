@@ -1,5 +1,5 @@
 import app from './index-v1.19.js';
-export const VERSION='1.21.6';
+export const VERSION='1.21.7';
 export function findComparedRunner(rows,mark){return rows.find(x=>mark.horseName?x.horseName===mark.horseName:mark.horseNo!=null&&x.horseNo===mark.horseNo);}
 export function selectedExpectedMarks(roster,values={}){const allowed=new Set(['◎','○','▲','△','☆','注','消']);return roster.filter(name=>allowed.has(values[name])).map(horseName=>({horseName,mark:values[horseName]}));}
 export function normalizeDraftMarks(marks){const allowed=new Set(['◎','○','▲','△','☆','注','消']);return (Array.isArray(marks)?marks:[]).filter(m=>m&&typeof m.horse==='string'&&m.horse.trim()&&allowed.has(m.mark)).slice(0,18).map(m=>({horse:m.horse.trim(),mark:m.mark}));}
@@ -27,6 +27,12 @@ export const enhancement=String.raw`
  const historyCoverageSummary=${historyCoverageSummary.toString()};
  const learningProgressSummary=${learningProgressSummary.toString()};
  const api='https://keiba-lab-api.sekai-no-bancyou.workers.dev';
+ const openSystem=document.getElementById('openSystem');
+ function openView(id){document.querySelectorAll('section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.id===id));openSystem?.setAttribute('aria-expanded',String(id==='system'));document.getElementById(id)?.querySelector('h2')?.focus();}
+ openSystem?.addEventListener('click',()=>openView('system'));
+ document.getElementById('closeSystem')?.addEventListener('click',()=>{openView('home');openSystem?.focus();});
+ document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>openSystem?.setAttribute('aria-expanded','false')));
+ document.querySelectorAll('[data-home-view]').forEach(x=>x.addEventListener('click',()=>document.querySelector('.tab[data-id="'+x.dataset.homeView+'"]')?.click()));
  const out=document.getElementById('precardPreview'),identity=document.getElementById('precardIdentity'),panel=document.querySelector('.precard-panel');
  if(!out||!panel)return;
  const esc=v=>String(v??'未取得').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -106,7 +112,10 @@ export const enhancement=String.raw`
 })();
 </script>`;
 export default{async fetch(request,env,ctx){
- if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible']},{headers:{'cache-control':'no-store'}});
+ if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view']},{headers:{'cache-control':'no-store'}});
  const r=await app.fetch(request,env,ctx);if(!r.ok||!r.headers.get('content-type')?.includes('text/html'))return r;
- return new Response((await r.text()).replace('<div class="k">サウジRC</div>','<div class="k">アイルランドT</div>').replace('</body>',enhancement+'</body>'),{status:r.status,headers:r.headers});
+ let html=await r.text();
+ html=html.replace(/<section id="home" class="active">([\s\S]*?)<\/section>/,(_,content)=>'<section id="home" class="active"><div class="section-title">予想を進める</div><div class="card"><div class="controls"><button type="button" class="btn" data-home-view="marks">初期印・DB比較</button><button type="button" class="btn secondary" data-home-view="race">対象レース・馬場</button><button type="button" class="btn secondary" data-home-view="history">履歴・回顧</button></div></div></section><section id="system" aria-labelledby="systemTitle"><div class="controls"><button type="button" class="btn secondary" id="closeSystem">ホームへ戻る</button></div><h2 id="systemTitle" tabindex="-1" class="section-title">システム情報</h2>'+content+'</section>');
+ html=html.replace('</header>','<button type="button" class="btn secondary" id="openSystem" aria-controls="system" aria-expanded="false">システム情報</button></header>');
+ return new Response(html.replace('<div class="k">サウジRC</div>','<div class="k">アイルランドT</div>').replace('</body>',enhancement+'</body>'),{status:r.status,headers:r.headers});
 }};
