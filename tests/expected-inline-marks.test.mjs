@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import app,{VERSION,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
+import app,{VERSION,historySourceLinks,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
 test('inline marks use only current roster names, exclude stale horses and do not invent numbers',()=>{
  const roster=['ヴォンフレ','カムニャック','ラヴァンダ'];
  assert.deepEqual(selectedExpectedMarks(roster,{'ヴォンフレ':'注','カムニャック':'','ラヴァンダ':'○','別馬':'◎'}),[{horseName:'ヴォンフレ',mark:'注'},{horseName:'ラヴァンダ',mark:'○'}]);
@@ -63,4 +63,11 @@ test('overlooked candidates are held for incomplete pools and thin history',()=>
  assert.deepEqual(overlookedCandidateSummary({runnerPool:3,scoredRunners:2,unmarkedCandidates:candidates}).candidates,[]);
  assert.deepEqual(overlookedCandidateSummary({runnerPool:3,scoredRunners:3,unmarkedCandidates:candidates}).candidates,[candidates[0]]);
  assert.equal(overlookedCandidateSummary({}).complete,false);
+});
+
+test('history provenance links reject unsafe destinations without hiding supplementary status',()=>{
+ const valid=historySourceLinks({sourceUrl:'https://www.jra.go.jp/JRADB/accessU.html?CNAME=abc',supplementalSourceUrl:'https://race.netkeiba.com/race/shutuba_past.html?race_id=123'});
+ assert.equal(valid.links.length,2);assert.equal(valid.supplemented,true);
+ for(const url of ['javascript:alert(1)','http://www.jra.go.jp/','https://www.jra.go.jp.evil.test/','https://user:pass@www.jra.go.jp/'])assert.equal(historySourceLinks({sourceUrl:url}).links.length,0);
+ assert.equal(historySourceLinks({supplementalSourceUrl:'bad'}).supplemented,true);assert.deepEqual(historySourceLinks({}).links,[]);
 });
