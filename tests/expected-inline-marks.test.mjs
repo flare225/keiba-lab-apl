@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import app,{VERSION,historySourceLinks,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
+import app,{VERSION,cornerPositionSummary,historySourceLinks,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
 test('inline marks use only current roster names, exclude stale horses and do not invent numbers',()=>{
  const roster=['ヴォンフレ','カムニャック','ラヴァンダ'];
  assert.deepEqual(selectedExpectedMarks(roster,{'ヴォンフレ':'注','カムニャック':'','ラヴァンダ':'○','別馬':'◎'}),[{horseName:'ヴォンフレ',mark:'注'},{horseName:'ラヴァンダ',mark:'○'}]);
@@ -78,4 +78,9 @@ test('history receipt still due is visible even with stored starts',()=>{
 
 test('checked empty history remains missing without appearing in the pending check list',()=>{
  const s=historyCoverageSummary({runnerCount:1,withStoredHistory:0,pendingHorses:0,runners:[{horseName:'A',storedRows:0,due:false,collectionState:'checked-empty'}]});assert.equal(s.stored,0);assert.equal(s.pending,0);assert.deepEqual(s.pendingNames,[]);
+});
+
+test('corner summaries normalize field size and reject missing or impossible positions',()=>{
+ const rows=[{cornerPositions:'1-1',fieldSize:10},{cornerPositions:'5-5-5-5',fieldSize:10},{cornerPositions:'10',fieldSize:10},{cornerPositions:'4-3',fieldSize:null},{cornerPositions:'11-2',fieldSize:10},{cornerPositions:'2=3',fieldSize:10}];
+ assert.deepEqual(cornerPositionSummary(rows),{total:6,recorded:3,average:5.3,front:1,middle:1,back:1});assert.equal(cornerPositionSummary([]).average,null);
 });
