@@ -128,3 +128,6 @@ jobs:
       - name: Guard active Worker entrypoint
         run: |
           grep -q '"main": "src/index-v1.20.js"' wrangler.jsonc
+
+      - name: Verify initial comparison identity and generated scripts
+        run: node --test tests/*.test.mjs

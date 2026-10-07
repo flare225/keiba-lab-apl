@@ -1,5 +1,6 @@
 import app from './index-v1.19.js';
-export const VERSION='1.20.0';
+export const VERSION='1.20.1';
+export function findComparedRunner(rows,mark){return rows.find(x=>mark.horseName?x.horseName===mark.horseName:mark.horseNo!=null&&x.horseNo===mark.horseNo);}
 export const enhancement=String.raw`
 <style>
 .labo-main-link{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.labo-main-link a{display:block;padding:12px;border:1px solid var(--line);border-radius:12px;color:var(--accent);text-decoration:none}
@@ -8,6 +9,7 @@ export const enhancement=String.raw`
 </style>
 <script>
 (()=>{
+ const findComparedRunner=${findComparedRunner.toString()};
  const api='https://keiba-lab-api.sekai-no-bancyou.workers.dev';
  const out=document.getElementById('precardPreview'),identity=document.getElementById('precardIdentity'),panel=document.querySelector('.precard-panel');
  if(!out||!panel)return;
@@ -15,7 +17,7 @@ export const enhancement=String.raw`
  const value=(v,u='')=>v==null?'未取得':esc(v)+u;
  const key=t=>t?t.date+'|'+t.venue+'|'+t.raceNo:'';
  let generation=0,timer=null,running=false,queued=false,cache=null,cacheKey='',cachedAt=0;
- const label=()=>{const t=window.getLaboTarget?.();return t?t.date+' '+t.venue+t.raceNo+'R '+(t.raceName||''): '対象レースを確認中';};
+ const label=()=>{const t=window.getLaboTarget?.();return t?t.date+' '+t.venue+t.raceNo+'R '+(t.raceName||t.race_name||(t.date==='2026-10-11'&&t.venue==='東京'&&Number(t.raceNo)===11?'アイルランドトロフィー':'')): '対象レースを確認中';};
  panel.querySelector('.precard-explain').textContent='初期印を付けると、対象レースの全馬を保存済みDBから比較します。根拠の過去走・上がり3F・通過順を確認できます。';
  panel.querySelector('.precard-guard').textContent='参考指数は的中確率ではありません。正式出馬表・枠順・当日馬場は未確定なら保留。初期印の仮比較は印の保存・事前LOCKを行いません。';
  const old=panel.querySelector('#precardRefresh'),refresh=old.cloneNode(true);old.replaceWith(refresh);refresh.textContent='保存済みDBを読み直して仮比較';
@@ -30,7 +32,7 @@ export const enhancement=String.raw`
   const a=d.assessment||{},rows=a.allRunners||[],evidence=new Map((d.audit?.historySidecar||[]).map(x=>[x.horseName,x]));
   out.className='precard-horses';
   out.innerHTML='<div class="labo-comparison-title">'+esc(label())+'</div><p>全'+value(a.runnerPool)+'頭中 '+value(a.scoredRunners)+'頭を仮評価。参考指数・馬場未指定なら馬場評価を保留。</p>'+human.map(m=>{
-   const r=rows.find(x=>x.horseName===m.horseName||x.horseNo===m.horseNo),a=r?.assessment||{},h=evidence.get(r?.horseName||m.horseName);
+   const r=findComparedRunner(rows,m),a=r?.assessment||{},h=evidence.get(r?.horseName||m.horseName);
    return '<article class="precard-horse"><b>'+esc(m.mark)+' '+esc(r?.horseName||m.horseName||m.horseNo)+'</b><p>参考指数 '+value(a.evidenceScore)+' / 100 · 参考順位 '+value(r?.referenceRank,'位')+'</p>'+(h?.recent?.length?'<details><summary>根拠の過去走 '+h.recent.length+'走を見る</summary>'+h.recent.map(x=>'<div class="precard-race"><b>'+esc(x.date)+' '+esc(x.venue)+' '+esc(x.raceName)+' · '+value(x.finish,'着')+'</b><div class="precard-race-meta">'+esc(x.surface)+' '+value(x.distance,'m')+' / 時計 '+value(x.time)+'<br>通過 '+value(x.cornerPositions)+' / 上がり3F '+value(x.last3f,'秒')+'</div></div>').join('')+'</details>':'<p>履歴未取得・比較保留</p>')+'</article>';
   }).join('')+'<div class="labo-pool"><table><caption>全馬の参考評価（印は点数に使いません）</caption><thead><tr><th>馬名</th><th>順位</th><th>参考指数</th><th>過去走</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.horseName)+'</td><td>'+value(r.referenceRank)+'</td><td>'+value(r.assessment?.evidenceScore)+'</td><td>'+value(r.assessment?.historyRows,'走')+'</td></tr>').join('')+'</tbody></table></div>';
   identity.textContent=label()+' / 保存済みDBから比較。枠・馬番は正式出馬表で確認します。';
