@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import app,{VERSION,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
+import app,{VERSION,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
 test('inline marks use only current roster names, exclude stale horses and do not invent numbers',()=>{
  const roster=['ヴォンフレ','カムニャック','ラヴァンダ'];
  assert.deepEqual(selectedExpectedMarks(roster,{'ヴォンフレ':'注','カムニャック':'','ラヴァンダ':'○','別馬':'◎'}),[{horseName:'ヴォンフレ',mark:'注'},{horseName:'ラヴァンダ',mark:'○'}]);
@@ -57,3 +57,10 @@ test('home next action preserves card gates and distinguishes unavailable state 
  const lines=runnerEvidenceLines({detail:{course:{exactDistance:{rows:0},sameVenue:{rows:2}},ground:{rows:0}},components:{ground:null,paceStyleFit:null},modelCoveragePct:60});
  assert.match(lines[0],/同じ距離：0走/);assert.match(lines[2],/未指定.*評価保留/);assert.match(lines[3],/評価保留/);assert.match(lines[4],/60%.*勝率ではありません/);assert.match(runnerEvidenceLines({})[0],/未取得/);
  });
+
+test('overlooked candidates are held for incomplete pools and thin history',()=>{
+ const candidates=[{horseName:'A',referenceRank:1,validFinishRows:5},{horseName:'B',referenceRank:2,validFinishRows:2},{horseName:'C',referenceRank:4,validFinishRows:8}];
+ assert.deepEqual(overlookedCandidateSummary({runnerPool:3,scoredRunners:2,unmarkedCandidates:candidates}).candidates,[]);
+ assert.deepEqual(overlookedCandidateSummary({runnerPool:3,scoredRunners:3,unmarkedCandidates:candidates}).candidates,[candidates[0]]);
+ assert.equal(overlookedCandidateSummary({}).complete,false);
+});

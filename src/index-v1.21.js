@@ -1,11 +1,12 @@
 import app from './index-v1.19.js';
-export const VERSION='1.21.11';
+export const VERSION='1.21.12';
 export function findComparedRunner(rows,mark){return rows.find(x=>mark.horseName?x.horseName===mark.horseName:mark.horseNo!=null&&x.horseNo===mark.horseNo);}
 export function selectedExpectedMarks(roster,values={}){const allowed=new Set(['◎','○','▲','△','☆','注','消']);return roster.filter(name=>allowed.has(values[name])).map(horseName=>({horseName,mark:values[horseName]}));}
 export function normalizeDraftMarks(marks){const allowed=new Set(['◎','○','▲','△','☆','注','消']);return (Array.isArray(marks)?marks:[]).filter(m=>m&&typeof m.horse==='string'&&m.horse.trim()&&allowed.has(m.mark)).slice(0,18).map(m=>({horse:m.horse.trim(),mark:m.mark}));}
 export function phaseGateMessage(phase,ops={}){if(phase==='initial')return{tone:'info',text:'想定段階です。初期印は仮比較用で、正式保存・事前LOCKは行いません。'};if(!ops?.ok)return{tone:'warn',text:'公式出馬表の保存状態を確認中です。下書きは編集できますが、正式保存・事前LOCKは保留です。'};const o=ops.ops||{};if(!o.cardComplete)return{tone:'warn',text:'公式出馬表は未保存または監査前です。下書きは使えますが、正式保存・事前LOCKはできません。'};if(!o.prelockAllowed)return{tone:'warn',text:'公式出馬表は保存済みですが、監査の確認が残っています。LOCK前の下書きとして扱います。'};if(!o.predictionReady)return{tone:'info',text:'公式出馬表の保存・監査は通過。次はLABO事前LOCKです。哲平印は下書きのままです。'};return{tone:o.alertStatus==='BLOCK'?'warn':'ok',text:o.alertStatus==='BLOCK'?'公式カードとLOCKは確認済みですが、当日チェックに要確認項目があります。':'公式カードとLABO事前LOCKを確認済みです。「DBで再精査」で哲平印との照合へ進めます。'};}
 export function historyCoverageSummary(race={}){const total=Number(race.runnerCount||0),stored=Number(race.withStoredHistory||0),pending=Number(race.pendingHorses??Math.max(0,total-stored));return{total:Number.isFinite(total)?total:0,stored:Math.max(0,stored),pending:Math.max(0,pending),pendingNames:(Array.isArray(race.runners)?race.runners:[]).filter(x=>Number(x?.storedRows||0)<=0).map(x=>String(x.horseName||'')).filter(Boolean)};}
 export function learningProgressSummary(learning={}){const training=learning.training||{},minimum=Number(learning.minimumRaces),eligible=Number(training.eligibleRaces),remaining=Number(training.remainingRaces);return{eligible:Number.isFinite(eligible)?Math.max(0,eligible):null,minimum:Number.isFinite(minimum)&&minimum>0?minimum:null,remaining:Number.isFinite(remaining)?Math.max(0,remaining):null,candidateCreated:learning.candidateCreated===true,automaticPromotion:false};}
+export function overlookedCandidateSummary(c={}){const complete=Number.isFinite(c.runnerPool)&&c.runnerPool>0&&c.scoredRunners===c.runnerPool;return{complete,candidates:complete?(c.unmarkedCandidates||[]).filter(x=>Number.isFinite(x.referenceRank)&&x.referenceRank<=3&&x.validFinishRows>=3):[]};}
 export function runnerEvidenceLines(a={}){const d=a.detail||{},c=d.course||{},g=d.ground||{};const count=x=>Number.isFinite(x)?x+'走':'未取得';const index=x=>Number.isFinite(x)?String(x):'評価保留';return ['同じ距離：'+count(c.exactDistance?.rows)+' / 同じ競馬場：'+count(c.sameVenue?.rows),'距離±200m：'+count(c.within200m?.rows)+' / コース・距離指数：'+index(a.components?.courseDistanceFit),'想定馬場：'+(g.targetCondition||'未指定')+' / 根拠 '+count(g.rows)+' / 馬場指数：'+index(a.components?.ground),'脚質・展開適合：'+index(a.components?.paceStyleFit),'評価項目の充足率：'+(Number.isFinite(a.modelCoveragePct)?a.modelCoveragePct+'%':'未取得')+'（勝率ではありません）',...(a.notes||[])];}
 export function homeRaceSummary(data){
  if(!data?.ok||!data.ops)return{missing:['保存状態を確認できません'],next:'状態を再確認してください',view:'race'};
@@ -34,6 +35,7 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
 </style>
 <script>
 (()=>{
+ const overlookedCandidateSummary=${overlookedCandidateSummary.toString()};
  const runnerEvidenceLines=${runnerEvidenceLines.toString()};
  const findComparedRunner=${findComparedRunner.toString()};
  const selectedExpectedMarks=${selectedExpectedMarks.toString()};
@@ -99,11 +101,14 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
 
  function marks(){if(initial()&&roster.length&&rosterKey===key(window.getLaboTarget?.()))return selectedExpectedMarks(roster,values());return [...document.querySelectorAll('.markrow')].map(r=>{const name=r.querySelector('.horse').value.trim(),mark=r.querySelector('.mk').value;return !name?null:/^\d+$/.test(name)?{horseNo:Number(name),mark}:{horseName:name,mark};}).filter(Boolean);}
  function render(d,human){
+  const comparison=d.comparison||{},reviewRows=new Map((comparison.rows||[]).map(x=>[x.horseName,x])),overlooked=overlookedCandidateSummary(comparison);
   const a=d.assessment||{},rows=a.allRunners||[],evidence=new Map((d.audit?.historySidecar||[]).map(x=>[x.horseName,x]));
   out.className='precard-horses';
-  out.innerHTML='<div class="labo-comparison-title">'+esc(label())+'</div><p>全'+value(a.runnerPool)+'頭中 '+value(a.scoredRunners)+'頭を仮評価。参考指数・馬場未指定なら馬場評価を保留。</p>'+human.map(m=>{
-   const r=findComparedRunner(rows,m),a=r?.assessment||{},h=evidence.get(r?.horseName||m.horseName);
-   return '<article class="precard-horse"><b>'+esc(m.mark)+' '+esc(r?.horseName||m.horseName||m.horseNo)+'</b><p>参考指数 '+value(a.evidenceScore)+' / 100 · 参考順位 '+value(r?.referenceRank,'位')+'</p>'+(h?.recent?.length?'<details><summary>根拠の過去走 '+h.recent.length+'走を見る</summary>'+h.recent.map(x=>'<div class="precard-race"><b>'+esc(x.date)+' '+esc(x.venue)+' '+esc(x.raceName)+' · '+value(x.finish,'着')+'</b><div class="precard-race-meta">'+esc(x.surface)+' '+value(x.distance,'m')+' / 時計 '+value(x.time)+'<br>通過 '+value(x.cornerPositions)+' / 上がり3F '+value(x.last3f,'秒')+'</div></div>').join('')+'</details>':'<p>履歴未取得・比較保留</p>')+'</article>';
+  const candidates='<article class="precard-horse"><b>印を付けていない参考上位候補</b><p>'+(!overlooked.complete?'全馬の有効な履歴がそろうまで、候補の提示を保留します。':overlooked.candidates.length?overlooked.candidates.map(x=>esc(x.horseName)+'（参考'+value(x.referenceRank,'位')+'・有効な着順'+value(x.validFinishRows,'走')+'）').join('<br>'):'有効な着順3走以上の参考上位3位内に、印の未指定馬はいません。')+'</p><small>印は自動変更しません。参考指数は的中確率ではありません。</small></article>';
+  out.innerHTML=candidates+'<div class="labo-comparison-title">'+esc(label())+'</div><p>全'+value(a.runnerPool)+'頭中 '+value(a.scoredRunners)+'頭を仮評価。参考指数・馬場未指定なら馬場評価を保留。</p>'+human.map(m=>{
+   const r=findComparedRunner(rows,m),a=r?.assessment||{},h=evidence.get(r?.horseName||m.horseName),review=reviewRows.get(r?.horseName||m.horseName);
+   const reviewHtml=review?'<p><strong>'+esc(review.label)+'</strong><br>'+esc(review.explanation)+'</p><details><summary>見直す前に不足情報を確認</summary><ul>'+review.gaps.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></details>':'';
+   return '<article class="precard-horse"><b>'+esc(m.mark)+' '+esc(r?.horseName||m.horseName||m.horseNo)+'</b><p>参考指数 '+value(a.evidenceScore)+' / 100 · 参考順位 '+value(r?.referenceRank,'位')+'</p>'+reviewHtml+(h?.recent?.length?'<details><summary>根拠の過去走 '+h.recent.length+'走を見る</summary>'+h.recent.map(x=>'<div class="precard-race"><b>'+esc(x.date)+' '+esc(x.venue)+' '+esc(x.raceName)+' · '+value(x.finish,'着')+'</b><div class="precard-race-meta">'+esc(x.surface)+' '+value(x.distance,'m')+' / 時計 '+value(x.time)+'<br>通過 '+value(x.cornerPositions)+' / 上がり3F '+value(x.last3f,'秒')+'</div></div>').join('')+'</details>':'<p>履歴未取得・比較保留</p>')+'</article>';
   }).join('')+'<div class="labo-pool"><h4>全馬の参考評価（印は点数に使いません）</h4><div class="labo-pool-list" role="list">'+rows.map(r=>'<article class="labo-pool-card" role="listitem"><h5>'+esc(r.horseName)+'</h5><dl class="labo-pool-stats"><div><dt>参考順位</dt><dd>'+value(r.referenceRank,'位')+'</dd></div><div><dt>参考指数</dt><dd>'+value(r.assessment?.evidenceScore)+'</dd></div><div><dt>過去走</dt><dd>'+value(r.assessment?.historyRows,'走')+'</dd></div></dl><details class="labo-evidence"><summary>適性の根拠・不足を見る</summary><ul>'+runnerEvidenceLines(r.assessment).map(line=>'<li>'+esc(line)+'</li>').join('')+'</ul></details></article>').join('')+'</div></div>';
   identity.textContent=label()+' / 保存済みDBから比較。枠・馬番は正式出馬表で確認します。';
  }
