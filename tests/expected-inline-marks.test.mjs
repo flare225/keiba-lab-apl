@@ -13,5 +13,5 @@ test('all delivered scripts compile and inline roster reads the dated DB source'
  for(const [,code] of h.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(code);
  assert.ok(h.includes(selectedExpectedMarks.toString()));
  assert.ok(h.includes('expectedInlineRoster'));
- assert.equal((await (await app.fetch(new Request('https://keiba-lab-apl.vercel.app/health'))).json()).version,'1.21.0');
+ assert.equal((await (await app.fetch(new Request('https://keiba-lab-apl.vercel.app/health'))).json()).version,'1.21.1');
 });
