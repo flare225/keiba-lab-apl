@@ -30,3 +30,15 @@ test('history coverage leaves missing runners explicit',()=>{
  assert.deepEqual(s,{total:3,stored:1,pending:2,pendingNames:['B','C']});
  assert.deepEqual(historyCoverageSummary({runnerCount:2,withStoredHistory:2,runners:[{horseName:'A',storedRows:8},{horseName:'B',storedRows:7}]}).pendingNames,[]);
 });
+
+test('returning home restores the home panel and resets a long-page scroll',async()=>{
+ const html=await(await app.fetch(new Request('https://example.com'))).text();
+ const nodes=['home','race','marks','history','ops','system'].map(id=>({id,active:id==='marks',classList:{toggle(name,on){nodes.find(x=>x.classList===this).active=on;}}}));
+ const tabs=nodes.filter(x=>x.id!=='system').map(x=>({dataset:{id:x.id},classList:{toggle(){}}}));
+ let scroll=null,expanded=null;
+ const code=html.match(/function openView\(id\)\{[^\n]+\}/)[0];
+ const context={document:{querySelectorAll:s=>s==='section'?nodes:tabs,getElementById:()=>({querySelector:()=>null})},window:{scrollTo:v=>{scroll=v;}},openSystem:{setAttribute:(k,v)=>{expanded=v;}}};
+ new Script(code+';openView("home");').runInNewContext(context);
+ assert.deepEqual(nodes.filter(x=>x.active).map(x=>x.id),['home']);
+ assert.equal(scroll.top,0);assert.equal(expanded,'false');assert.match(html,/id="goHome"/);
+});

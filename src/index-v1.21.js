@@ -1,5 +1,5 @@
 import app from './index-v1.19.js';
-export const VERSION='1.21.7';
+export const VERSION='1.21.8';
 export function findComparedRunner(rows,mark){return rows.find(x=>mark.horseName?x.horseName===mark.horseName:mark.horseNo!=null&&x.horseNo===mark.horseNo);}
 export function selectedExpectedMarks(roster,values={}){const allowed=new Set(['◎','○','▲','△','☆','注','消']);return roster.filter(name=>allowed.has(values[name])).map(horseName=>({horseName,mark:values[horseName]}));}
 export function normalizeDraftMarks(marks){const allowed=new Set(['◎','○','▲','△','☆','注','消']);return (Array.isArray(marks)?marks:[]).filter(m=>m&&typeof m.horse==='string'&&m.horse.trim()&&allowed.has(m.mark)).slice(0,18).map(m=>({horse:m.horse.trim(),mark:m.mark}));}
@@ -8,6 +8,7 @@ export function historyCoverageSummary(race={}){const total=Number(race.runnerCo
 export function learningProgressSummary(learning={}){const training=learning.training||{},minimum=Number(learning.minimumRaces),eligible=Number(training.eligibleRaces),remaining=Number(training.remainingRaces);return{eligible:Number.isFinite(eligible)?Math.max(0,eligible):null,minimum:Number.isFinite(minimum)&&minimum>0?minimum:null,remaining:Number.isFinite(remaining)?Math.max(0,remaining):null,candidateCreated:learning.candidateCreated===true,automaticPromotion:false};}
 export const enhancement=String.raw`
 <style>
+header{flex-wrap:wrap}header>.controls{margin-top:0}
 .controls[hidden],.marks[hidden],#expectedInlineRoster[hidden]{display:none!important}
 .expected-inline-row{display:grid;grid-template-columns:minmax(0,1fr) 100px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.expected-inline-row label{font-size:16px;font-weight:750}.expected-inline-row select{width:100%;min-height:46px}.expected-inline-list{margin:12px 0}.expected-inline-note{font-size:13px;line-height:1.6;color:var(--muted)}
 .labo-main-link{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.labo-main-link a{display:block;padding:12px;border:1px solid var(--line);border-radius:12px;color:var(--accent);text-decoration:none}
@@ -28,10 +29,11 @@ export const enhancement=String.raw`
  const learningProgressSummary=${learningProgressSummary.toString()};
  const api='https://keiba-lab-api.sekai-no-bancyou.workers.dev';
  const openSystem=document.getElementById('openSystem');
- function openView(id){document.querySelectorAll('section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.id===id));openSystem?.setAttribute('aria-expanded',String(id==='system'));document.getElementById(id)?.querySelector('h2')?.focus();}
+ function openView(id){document.querySelectorAll('section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.id===id));openSystem?.setAttribute('aria-expanded',String(id==='system'));window.scrollTo({top:0,behavior:'instant'});document.getElementById(id)?.querySelector('h2')?.focus({preventScroll:true});}
+ document.getElementById('goHome')?.addEventListener('click',()=>openView('home'));
  openSystem?.addEventListener('click',()=>openView('system'));
  document.getElementById('closeSystem')?.addEventListener('click',()=>{openView('home');openSystem?.focus();});
- document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>openSystem?.setAttribute('aria-expanded','false')));
+ document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>{openSystem?.setAttribute('aria-expanded','false');window.scrollTo({top:0,behavior:'instant'});}));
  document.querySelectorAll('[data-home-view]').forEach(x=>x.addEventListener('click',()=>document.querySelector('.tab[data-id="'+x.dataset.homeView+'"]')?.click()));
  const out=document.getElementById('precardPreview'),identity=document.getElementById('precardIdentity'),panel=document.querySelector('.precard-panel');
  if(!out||!panel)return;
@@ -116,6 +118,6 @@ export default{async fetch(request,env,ctx){
  const r=await app.fetch(request,env,ctx);if(!r.ok||!r.headers.get('content-type')?.includes('text/html'))return r;
  let html=await r.text();
  html=html.replace(/<section id="home" class="active">([\s\S]*?)<\/section>/,(_,content)=>'<section id="home" class="active"><div class="section-title">予想を進める</div><div class="card"><div class="controls"><button type="button" class="btn" data-home-view="marks">初期印・DB比較</button><button type="button" class="btn secondary" data-home-view="race">対象レース・馬場</button><button type="button" class="btn secondary" data-home-view="history">履歴・回顧</button></div></div></section><section id="system" aria-labelledby="systemTitle"><div class="controls"><button type="button" class="btn secondary" id="closeSystem">ホームへ戻る</button></div><h2 id="systemTitle" tabindex="-1" class="section-title">システム情報</h2>'+content+'</section>');
- html=html.replace('</header>','<button type="button" class="btn secondary" id="openSystem" aria-controls="system" aria-expanded="false">システム情報</button></header>');
+ html=html.replace('</header>','<div class="controls"><button type="button" class="btn secondary" id="goHome">ホーム</button><button type="button" class="btn secondary" id="openSystem" aria-controls="system" aria-expanded="false">システム情報</button></div></header>');
  return new Response(html.replace('<div class="k">サウジRC</div>','<div class="k">アイルランドT</div>').replace('</body>',enhancement+'</body>'),{status:r.status,headers:r.headers});
 }};
