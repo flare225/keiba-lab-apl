@@ -1,4 +1,4 @@
-import worker from '../src/index-v1.20.js';
+import worker from '../src/index-v1.21.js';
 
 export default async function handler(req, res) {
   try {
