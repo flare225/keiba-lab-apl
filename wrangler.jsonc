@@ -1,9 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "keiba-lab-app",
-  "main": "src/index-v1.19.js",
+  "main": "src/index-v1.20.js",
   "compatibility_date": "2026-10-02",
   "observability": {
     "enabled": true
   }
 }
+
