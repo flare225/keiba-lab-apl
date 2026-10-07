@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import app,{VERSION,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
+import app,{VERSION,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
 test('inline marks use only current roster names, exclude stale horses and do not invent numbers',()=>{
  const roster=['ヴォンフレ','カムニャック','ラヴァンダ'];
  assert.deepEqual(selectedExpectedMarks(roster,{'ヴォンフレ':'注','カムニャック':'','ラヴァンダ':'○','別馬':'◎'}),[{horseName:'ヴォンフレ',mark:'注'},{horseName:'ラヴァンダ',mark:'○'}]);
@@ -52,3 +52,8 @@ test('home next action preserves card gates and distinguishes unavailable state 
  const blocked=homeRaceSummary({ok:true,ops:{cardComplete:true,prelockAllowed:true,predictionReady:true,userMarkReady:true,decisionReady:true,alertStatus:'BLOCK',nextAction:'RESOLVE_BLOCKER'}});
  assert.match(blocked.missing.join(),/要確認/);
 });
+
+ test('runner evidence keeps absent scores pending and preserves zero counts',()=>{
+ const lines=runnerEvidenceLines({detail:{course:{exactDistance:{rows:0},sameVenue:{rows:2}},ground:{rows:0}},components:{ground:null,paceStyleFit:null},modelCoveragePct:60});
+ assert.match(lines[0],/同じ距離：0走/);assert.match(lines[2],/未指定.*評価保留/);assert.match(lines[3],/評価保留/);assert.match(lines[4],/60%.*勝率ではありません/);assert.match(runnerEvidenceLines({})[0],/未取得/);
+ });
