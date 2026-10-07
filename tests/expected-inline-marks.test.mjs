@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import app,{VERSION,orderComparedRunners,cornerPositionSummary,historySourceLinks,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
+import app,{VERSION,automaticHistoryProgress,orderComparedRunners,cornerPositionSummary,historySourceLinks,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
 test('inline marks use only current roster names, exclude stale horses and do not invent numbers',()=>{
  const roster=['ヴォンフレ','カムニャック','ラヴァンダ'];
  assert.deepEqual(selectedExpectedMarks(roster,{'ヴォンフレ':'注','カムニャック':'','ラヴァンダ':'○','別馬':'◎'}),[{horseName:'ヴォンフレ',mark:'注'},{horseName:'ラヴァンダ',mark:'○'}]);
@@ -94,4 +94,9 @@ test('comparison display sorts without altering ranks and filters exact selected
 
 test('returning to foreground refreshes old progress but avoids repeated and hidden fetches',async()=>{
  const html=await(await app.fetch(new Request('https://example.com'))).text();const code=html.match(/function refreshReturningHome\(\)\{[^\n]+\}/)[0];let calls=0;const document={visibilityState:'visible'},context={document,Date:{now:()=>120000},learningCheckedAt:100000,refreshHomeLearning:()=>calls++};const script=new Script(code+';refreshReturningHome();');script.runInNewContext(context);assert.equal(calls,0);context.learningCheckedAt=0;document.visibilityState='hidden';script.runInNewContext(context);assert.equal(calls,0);document.visibilityState='visible';script.runInNewContext(context);assert.equal(calls,1);
+});
+
+test('home collection summary never credits unfinished or unobserved scheduled work',()=>{
+ assert.match(automaticHistoryProgress({}),/未確認/);assert.match(automaticHistoryProgress({jobs:[{job:'history',heartbeat:'completion-unconfirmed',scheduled:{status:'running',result:{addedRows:10}}}]}),/完了記録を確認できません/);
+ const jobs=[{job:'history',heartbeat:'observed',scheduled:{status:'collected',finishedAt:'2026-10-07T14:31:01Z',result:{addedRows:10}}}];assert.match(automaticHistoryProgress({jobs}),/10走追加/);jobs[0].scheduled.status='cooldown';assert.match(automaticHistoryProgress({jobs}),/取得間隔の待機/);
 });
