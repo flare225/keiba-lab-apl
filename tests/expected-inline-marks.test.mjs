@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
+import {homeRaceState} from '../src/index-v1.21.js';
 import app,{VERSION,modelValidationSummary,automaticHistoryProgress,orderComparedRunners,cornerPositionSummary,historySourceLinks,overlookedCandidateSummary,runnerEvidenceLines,homeRaceSummary,selectedExpectedMarks,normalizeDraftMarks,phaseGateMessage,historyCoverageSummary} from '../src/index-v1.21.js';
 test('inline marks use only current roster names, exclude stale horses and do not invent numbers',()=>{
  const roster=['ヴォンフレ','カムニャック','ラヴァンダ'];
@@ -24,6 +25,15 @@ test('formal-card gate distinguishes editable drafts from audit and LOCK readine
  assert.match(phaseGateMessage('initial').text,/仮比較/);
  assert.match(phaseGateMessage('post_draw',{ok:true,ops:{cardComplete:false}}).text,/正式保存・事前LOCKはできません/);
  assert.match(phaseGateMessage('final',{ok:true,ops:{cardComplete:true,prelockAllowed:true,predictionReady:true,alertStatus:'OK'}}).text,/DBで再精査/);
+});
+test('explicit missing formal card opens pre-draw comparison while server errors remain unknown',()=>{
+ const waiting=homeRaceSummary(homeRaceState(404,{ok:false,nextAction:'WAIT_OFFICIAL_CARD'}));
+ assert.equal(waiting.view,'marks');assert.equal(waiting.phase,'initial');assert.match(waiting.next,/枠順公開後/);
+ assert.equal(homeRaceState(500,{nextAction:'WAIT_OFFICIAL_CARD'}),null);
+ assert.equal(homeRaceState(404,{error:'unrelated'}),null);
+ assert.equal(homeRaceSummary(homeRaceState(503,{})).phase,undefined);
+ const ready={ok:true,ops:{cardComplete:true,prelockAllowed:true,predictionReady:true,nextAction:'ENTER_USER_MARKS'}};
+ assert.equal(homeRaceState(200,ready),ready);assert.equal(homeRaceSummary(ready).phase,undefined);
 });
 test('history coverage leaves missing runners explicit',()=>{
  const s=historyCoverageSummary({runnerCount:3,withStoredHistory:1,pendingHorses:2,runners:[{horseName:'A',storedRows:8},{horseName:'B',storedRows:0},{horseName:'C',storedRows:0}]});
