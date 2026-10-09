@@ -92,6 +92,7 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
  openSystem?.addEventListener('click',()=>openView('system'));
  document.getElementById('closeSystem')?.addEventListener('click',()=>{openView('home');openSystem?.focus();});
  document.querySelectorAll('.tab').forEach(x=>x.addEventListener('click',()=>{openSystem?.setAttribute('aria-expanded','false');window.scrollTo({top:0,behavior:'instant'});}));
+ document.addEventListener('click',e=>{const tab=e.target.closest?.('.tab[data-id]');if(!tab)return;e.preventDefault();openView(tab.dataset.id);if(tab.dataset.id==='bets')requestAnimationFrame(()=>document.getElementById('betBudget')?.focus({preventScroll:true}));});
  document.querySelectorAll('[data-home-view]').forEach(x=>x.addEventListener('click',()=>{if(x.dataset.homePhase==='initial'){const phase=document.getElementById('phase');if(phase&&phase.value!=='initial'){phase.value='initial';phase.dispatchEvent(new Event('change',{bubbles:true}));}}document.querySelector('.tab[data-id="'+x.dataset.homeView+'"]')?.click();}));
  const out=document.getElementById('precardPreview'),identity=document.getElementById('precardIdentity'),panel=document.querySelector('.precard-panel');
  if(!out||!panel)return;
