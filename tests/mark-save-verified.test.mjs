@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import {readFileSync} from 'node:fs';
 import app,{VERSION} from '../src/index-v1.21.js';
-import {verifiedMarkPayload,sameDbMarks,summarizeDbRevision,localMarkReceipt} from '../src/mark-save-state-v1.24.js';
+import {verifiedMarkPayload,initialLocalMarkPayload,draftMarkMatch,sameDbMarks,summarizeDbRevision,localMarkReceipt} from '../src/mark-save-state-v1.24.js';
 import {parseMarkHistoryQuery,handleMarkHistory} from '../src/mark-storage-proxy-v1.24.js';
 import readRoute from '../api/lab-mark-read.js';
 const target={date:'2026-10-10',venue:'東京',raceNo:11};
@@ -39,7 +39,7 @@ test('local receipt is explicitly not a DB write or proof of pre-race lock',()=>
 test('published Vercel marks route is read-only; even POST to save is denied',async()=>{
  assert.equal(typeof readRoute,'function');
  assert.match(parseMarkHistoryQuery({date:'2026-10-10',venue:'東京',race_no:'11',phase:'final'}).toString(),/phase=final/);
- assert.throws(()=>parseMarkHistoryQuery({date:'2026-10-10',venue:'東京',race_no:'11',phase:'initial'}),/不正/);
+ assert.match(parseMarkHistoryQuery({date:'2026-10-10',venue:'東京',race_no:'11',phase:'initial'}).toString(),/phase=initial/);
  const denied=response();
  await handleMarkHistory({method:'POST',body:p,headers:{authorization:'Bearer unused'}},denied.res);
  assert.equal(denied.data.code,405);assert.equal(denied.data.value.ok,false);
@@ -57,10 +57,10 @@ test('published Vercel marks route is read-only; even POST to save is denied',as
 test('browser displays local receipt, remote history, and authentication pending without secret entry',async()=>{
  const html=await(await app.fetch(new Request('https://example.com/'))).text();
  assert.ok(html.includes("markSaveCard.id='userMarkSaveCard'"));
- for(const id of ['userMarkDbState','userMarkLocalState','userMarkSaveLocal','userMarkSaveCopy','userMarkRefreshDb'])assert.match(html,new RegExp('id="'+id+'"'));
+ for(const id of ['userMarkDbState','userMarkDraftState','userMarkLocalState','userMarkSaveLocal','userMarkSaveCopy','userMarkRefreshDb'])assert.match(html,new RegExp('id="'+id+'"'));
  assert.doesNotMatch(html,/id="userMarkWriteKey"|id="userMarkSaveDb"/);
  assert.match(html,/管理者用秘密キーの入力は不要です/);
- assert.match(html,/端末内の控えと、認証付きの正式DB保存は別/);
+ assert.match(html,/自動下書き（この端末）、日時付きの端末控え、正式DBの保存は3つとも別/);
  assert.match(html,/保存日時がレース後なら事後記録/);
  assert.match(html,/DB保存・レース前LOCKを証明するものではありません/);
  for(const [,script] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(script);
@@ -68,4 +68,22 @@ test('browser displays local receipt, remote history, and authentication pending
  assert.equal(health.version,VERSION);
  assert.ok(health.features.includes('verified-mark-revision-status'));
  assert.ok(health.features.includes('mark-save-authentication-pending'));
+});
+
+test('initial marks can be recorded as explicitly local-only receipts without phantom horse numbers',()=>{
+ const initial=initialLocalMarkPayload(target,{...state,phase:'initial',rosterVerified:false,track:'',marks:[{horseName:'馬A',mark:'◎'},{horseName:'馬B',mark:'○'}]});
+ assert.equal(initial.phase,'initial');
+ assert.equal(initial.localOnly,true);
+ assert.deepEqual(initial.marks,[{horseName:'馬A',mark:'◎'},{horseName:'馬B',mark:'○'}]);
+ assert.equal('confirm' in initial,false);
+ assert.equal('horseNo' in initial.marks[0],false);
+ assert.throws(()=>initialLocalMarkPayload(target,{...state,phase:'initial',roster:[],marks:[{horseName:'馬A',mark:'◎'}]}),/出走馬一覧/);
+ assert.throws(()=>initialLocalMarkPayload(target,{...state,phase:'initial',marks:[{horseName:'偽名',mark:'◎'}]}),/一致/);
+});
+test('saved local draft verifies same picks rather than claiming an old draft is current',()=>{
+ const current=[{horseName:'馬A',mark:'◎'},{horseName:'馬B',mark:'○'}];
+ assert.equal(draftMarkMatch({marks:{馬A:'◎',馬B:'○'}},current),true);
+ assert.equal(draftMarkMatch({marks:{馬A:'▲',馬B:'○'}},current),false);
+ assert.equal(draftMarkMatch({marks:[{horse:'馬A',mark:'◎'},{horse:'馬B',mark:'○'}]},current),true);
+ assert.equal(draftMarkMatch({marks:[{horse:'馬A',mark:'◎'},{horse:'馬B',mark:'▲'}]},current),false);
 });
