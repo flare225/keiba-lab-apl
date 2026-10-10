@@ -6,8 +6,12 @@
       "destination": "/api/lab-mark-read"
     },
     {
+      "source": "/v1/lab/user-mark-session",
+      "destination": "/api/lab-mark-owner"
+    },
+    {
       "source": "/v1/lab/user-marks/save",
-      "destination": "/api/lab-mark-read"
+      "destination": "/api/lab-mark-save"
     },
     {
       "source": "/v1/lab/user-mark-audit",
@@ -30,6 +34,12 @@
       "maxDuration": 35
     },
     "api/lab-mark-read.js": {
+      "maxDuration": 35
+    },
+    "api/lab-mark-save.js": {
+      "maxDuration": 35
+    },
+    "api/lab-mark-owner.js": {
       "maxDuration": 35
     }
   }

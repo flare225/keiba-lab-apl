@@ -52,7 +52,7 @@ test('published Vercel marks route is read-only; even POST to save is denied',as
  assert.equal(allowed.data.code,200);
  const cfg=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
  assert.ok(cfg.rewrites.find(x=>x.source==='/v1/lab/user-marks'&&x.destination==='/api/lab-mark-read'));
- assert.ok(cfg.rewrites.find(x=>x.source==='/v1/lab/user-marks/save'&&x.destination==='/api/lab-mark-read'));
+ assert.ok(cfg.rewrites.find(x=>x.source==='/v1/lab/user-marks/save'&&x.destination==='/api/lab-mark-save'));
 });
 test('browser displays local receipt, remote history, and authentication pending without secret entry',async()=>{
  const html=await(await app.fetch(new Request('https://example.com/'))).text();
