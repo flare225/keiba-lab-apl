@@ -8,6 +8,7 @@ import {WORKOUT_IMPRESSIONS,getOfficialWorkoutRoster,workoutImpressionSummary,mo
 import {USER_MARKS,TRACK_CONDITIONS,verifiedMarkPayload,initialLocalMarkPayload,draftMarkMatch,sameDbMarks,summarizeDbRevision,localMarkReceipt} from './mark-save-state-v1.24.js';
 import {mountMarkSaving} from './mark-save-client-v1.24.js';
 import {assignIndependentLaboMarks,buildIndependentLaboReview,renderIndependentLaboReview,mountIndependentLaboReview} from './labo-independent-review-v1.25.js';
+import {mountOwnerMarkSave} from './mark-owner-client-v1.25.js';
 import {MARK_EXPORT_PHASES,MARK_EXPORT_LABELS,MARK_EXPORT_CHOICES,parseRace,snapshot,readStored,collectSavedRaceMarks,formatBulkRaceMarks,mountBulkRaceMarkCopy} from './mark-bulk-export-v1.24.js';
 export const VERSION='1.25.0';
 export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={}){
@@ -111,6 +112,11 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
 .mark-bulk-export button{min-height:44px}
 .mark-bulk-export textarea{width:100%;min-height:200px;font:14px/1.6 ui-monospace,monospace;resize:vertical}
 .mark-bulk-export textarea[hidden]{display:none!important}
+.owner-mark-db{border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0;background:var(--panel)}
+.owner-mark-db .controls{display:flex;flex-wrap:wrap;gap:8px}
+.owner-mark-db .controls button{min-height:44px}
+.owner-mark-db .notice{font-size:13px;line-height:1.6}
+.owner-mark-db input[type=password]{max-width:100%;min-width:0}
 .labo-review-card{border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0;background:var(--panel)}
 .labo-review-card h3{margin:0 0 7px;font-size:16px}
 .labo-review-scroll{width:100%;max-width:100%;overflow-x:auto}
@@ -230,6 +236,7 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
  const buildIndependentLaboReview=${buildIndependentLaboReview.toString()};
  const renderIndependentLaboReview=${renderIndependentLaboReview.toString()};
  const mountIndependentLaboReview=${mountIndependentLaboReview.toString()};
+ const mountOwnerMarkSave=${mountOwnerMarkSave.toString()};
  const MARK_EXPORT_PHASES=${JSON.stringify(MARK_EXPORT_PHASES)};
  const MARK_EXPORT_LABELS=${JSON.stringify(MARK_EXPORT_LABELS)};
  const MARK_EXPORT_CHOICES=${JSON.stringify(MARK_EXPORT_CHOICES)};
@@ -303,6 +310,17 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  '<textarea id="userMarkSaveExport" hidden readonly rows="8" aria-label="印の控えを手動コピー"></textarea>'+
  '<p id="userMarkSaveInfo" role="status">正式出馬表と印の確認待ちです。</p>';
  manualRows.before(markSaveCard);
+ const ownerMarkCard=document.createElement('div');ownerMarkCard.className='owner-mark-db';ownerMarkCard.id='ownerMarkDbControls';
+ ownerMarkCard.innerHTML='<h3>印の正式DB保存・復元</h3>'+
+ '<p class="notice">ブラウザ下書きと正式DBは別物です。本人認証が有効な場合のみ、印を変更するとサーバー経由で自動保存します。DBへ書き込んだ後、保存履歴の再照合に成功して初めて「DB保存済み」と表示します。</p>'+
+ '<p id="ownerMarkDbStatus" class="notice" role="status">DBの認証設定を確認中…</p>'+
+ '<div id="ownerMarkLoginRow" class="controls" hidden><input id="ownerMarkPassword" type="password" autocomplete="current-password" placeholder="本人用パスフレーズ" aria-label="本人用パスフレーズ"/>'+
+ '<button type="button" class="btn secondary" id="ownerMarkLogin">本人認証する</button></div>'+
+ '<div class="controls"><button type="button" class="btn" id="ownerMarkSave" disabled>DBへ今すぐ保存</button>'+
+ '<button type="button" class="btn secondary" id="ownerMarkRestore" disabled>DB保存済み印を復元</button>'+
+ '<button type="button" class="btn secondary" id="ownerMarkLogout" hidden>ログアウト</button></div>'+
+ '<p class="notice">管理者用のDBキーをブラウザへ入力しないでください。DB保存済みでも、事前LOCKや学習モデル更新とは別工程です。</p>';
+ manualRows.before(ownerMarkCard);
  const laboIndependentCard=document.createElement('div');laboIndependentCard.className='labo-review-card';
  laboIndependentCard.id='independentLaboReview';
  laboIndependentCard.innerHTML='<h3>LABO自身の再精査・予想印</h3>'+
@@ -434,6 +452,23 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  mountTicketBuilder({document,window,api,getRace:()=>window.getLaboTarget?.(),getMarks:()=>marks(),verifyRoster:verifiedOfficialRoster,WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip,renderTicketSelectionMatrix});
  window.addEventListener('labo-target-change',targetChanged);targetChanged();
  mountBulkRaceMarkCopy({document,window,persistCurrent:()=>{saveInline();saveDraft();}});
+ function applyServerMarks(revision,c){
+  if(!revision||phaseInput.value!==revision.phase||!Array.isArray(revision.entries))throw Error('レースと段階を再確認してください。');
+  const choices=new Map();
+  for(const x of revision.entries){
+   const name=x.horse_name??x.horseName,rec=rosterNumbers[name];
+   if(!roster.includes(name)||!rec||rec.verified!==true||Number(x.horse_no??x.horseNo)!==rec.horseNo||
+    choices.has(name)||!USER_MARKS.includes(x.mark))throw Error('正式出馬表の馬番・馬名・印がDBと一致しません。');
+   choices.set(name,x.mark);
+  }
+  if(!rosterVerified)throw Error('正式出馬表の再取得が必要です。');
+  if(phaseInlineAvailable(phaseInput.value,rosterVerified,roster.length)){
+   rosterBox.querySelectorAll('select[data-horse-name]').forEach(x=>{x.value=choices.get(x.dataset.horseName)||'';});
+  }else fillDraft([...choices].map(([horse,mark])=>({horse,mark})));
+  trackInput.value=revision.trackCondition||'';
+  schedule();
+ }
+ mountOwnerMarkSave({document,window,getCurrent:()=>({target:window.getLaboTarget?.(),state:{phase:phaseInput.value,track:trackInput.value,marks:marks(),rosterVerified,roster,rosterNumbers}}),verifiedMarkPayload,initialLocalMarkPayload,applyDbMarks:applyServerMarks});
  mountIndependentLaboReview({document,window,api,getCurrent:()=>({target:window.getLaboTarget?.(),state:{phase:phaseInput.value,track:trackInput.value,marks:marks(),rosterVerified,roster,rosterNumbers}})});
  mountMarkSaving({document,window,getCurrent:()=>({target:window.getLaboTarget?.(),state:{phase:phaseInput.value,track:trackInput.value,marks:marks(),rosterVerified,roster,rosterNumbers,rosterSnapshot}}),verifiedMarkPayload,initialLocalMarkPayload,draftMarkMatch,sameDbMarks,summarizeDbRevision,localMarkReceipt});
  mountWorkoutEvidence({document,window,api,render:renderWorkoutEvidence,reference:netkeibaWorkoutReference});
@@ -441,7 +476,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
 })();
 </script>`;
 export default{async fetch(request,env,ctx){
- if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view','verified-jra-roster-number-overlay','budget-safe-allocation','formation-ticket-builder-8-types','readable-mark-audit-cards','explicit-missing-integrated-ranks','independent-labo-reference-marks','same-origin-mark-audit-proxy','six-tab-mobile-nav','single-roster-bet-matrix','manual-official-audit','workout-provenance-status','netkeiba-workout-reference-links','one-tap-workout-impressions','fixed-six-sibling-mobile-nav','verified-mark-revision-status','mark-save-authentication-pending','multi-race-marks-bulk-copy','mark-three-way-save-status','saudi-rc-selectable','official-marks-inline-all-phases']},{headers:{'cache-control':'no-store'}});
+ if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view','verified-jra-roster-number-overlay','budget-safe-allocation','formation-ticket-builder-8-types','readable-mark-audit-cards','explicit-missing-integrated-ranks','independent-labo-reference-marks','server-authenticated-user-marks-save','same-origin-mark-audit-proxy','six-tab-mobile-nav','single-roster-bet-matrix','manual-official-audit','workout-provenance-status','netkeiba-workout-reference-links','one-tap-workout-impressions','fixed-six-sibling-mobile-nav','verified-mark-revision-status','mark-save-authentication-pending','multi-race-marks-bulk-copy','mark-three-way-save-status','saudi-rc-selectable','official-marks-inline-all-phases']},{headers:{'cache-control':'no-store'}});
  const r=await app.fetch(request,env,ctx);if(!r.ok||!r.headers.get('content-type')?.includes('text/html'))return r;
  let html=await r.text();
  html=html.replace(/<section id="home" class="active">([\s\S]*?)<\/section>/,(_,content)=>'<section id="home" class="active"><div class="section-title">対象レース</div><div class="card"><h2 id="homeRaceTitle" class="section-title">対象レースを確認中</h2><p class="notice"><b>不足・未完了：</b><span id="homeRaceMissing">確認中…</span></p><p><b>次にすること：</b><span id="homeRaceNext"></span></p><button type="button" class="btn" id="homeRaceAction" data-home-view="race" disabled>次の操作へ</button></div><div class="card"><h2 class="section-title">現在は予想の判断補助</h2><p>過去走を使った参考比較ができます。予想精度はまだ検証できていません。</p><details><summary>評価できていない材料</summary><p>脚質・展開への適合と追い切りは参考指数に未反映です。未取得の馬場・通過順などは各馬の不足情報で確認できます。</p></details></div><div class="section-title">今週の重賞を選ぶ</div><div class="card"><div class="controls" id="raceQuickPick"><button type="button" class="btn secondary" data-race-date="2026-10-10">サウジアラビアRC（10/10）</button><button type="button" class="btn secondary" data-race-date="2026-10-11">アイルランドT（10/11）</button></div><p class="notice">レースを切り替えると馬名一覧と印の下書きも切り替わります。公式枠番は保存監査を通った場合のみ正式表示します。</p></div><div class="section-title">比較して予想を組み立てる</div><div class="card"><div class="controls"><button type="button" class="btn" data-home-view="marks">初期印・DB比較</button><button type="button" class="btn secondary" data-home-view="race">対象レース・馬場</button><button type="button" class="btn secondary" data-home-view="history">履歴・回顧</button></div></div><div class="section-title">学習データの蓄積</div><div class="card"><p id="homeLearning" role="status" class="notice">保存済みの学習データを確認中…</p><p id="homeValidation" class="notice">検証状況を確認中…</p><p id="homeCollection" class="notice"></p><p id="homeLearningUpdated" class="expected-inline-note"></p><div class="controls"><button type="button" class="btn secondary" id="refreshHomeLearning">学習状況を更新</button><a href="https://keiba-lab-api.sekai-no-bancyou.workers.dev/lab/work-progress" target="_blank" rel="noopener">補完待ち・詳しい進捗</a></div></div></section><section id="system" aria-labelledby="systemTitle"><div class="controls"><button type="button" class="btn secondary" id="closeSystem">ホームへ戻る</button></div><h2 id="systemTitle" tabindex="-1" class="section-title">システム情報</h2>'+content+'</section>');
