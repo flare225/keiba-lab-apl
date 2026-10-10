@@ -30,9 +30,9 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   try{
    const r=await fetcher('/v1/lab/user-mark-session',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({passphrase})});
    const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'認証できません。');
-   authenticated=true;msg('本人認証済み。印をDBへ保存できます。');void persist(false);
+   authenticated=true;msg('本人認証済み。現在の印をDBへ自動保存します。');
   }catch(e){authenticated=false;msg('本人認証できません：'+e.message);}
-  finally{working=false;update();}
+  finally{working=false;update();if(authenticated)queue();}
  });
  logout.addEventListener('click',async()=>{
   try{await fetcher('/v1/lab/user-mark-session',{method:'DELETE',credentials:'same-origin'});}catch{}
