@@ -86,13 +86,17 @@ jobs:
             -d '{"date":"2026-10-10","venue":"東京","raceNo":11,"phase":"final","confirm":"SAVE","track":"良","marks":[]}' || true)"
           # The route now exists, but must fail closed without Origin and owner session.
           # 405 was the pre-auth implementation's expected response; it is no longer correct.
-          if [[ "$status" != "403" && "$status" != "401" ]]; then
-            echo "Expected unauthenticated mark write to be rejected (401/403); received HTTP $status" >&2
-            cat "$error_file" >&2
+          echo "Unauthenticated save response: HTTP $status"
+          jq -c '{ok,error,saveMayHaveSucceeded}' "$error_file" || true
+          # Fail closed means never accepting the write. A missing server secret
+          # may legitimately return 503 before any owner session can be issued.
+          if [[ "$status" != "403" && "$status" != "401" && "$status" != "503" ]]; then
+            echo "Expected unauthenticated mark write to be rejected (401/403/503); received HTTP $status" >&2
             exit 1
           fi
           jq -e '.ok == false' "$error_file" >/dev/null
           session="$(curl -fsS --max-time 15 "$PRODUCTION_URL/v1/lab/user-mark-session")"
+          printf '%s' "$session" | jq -c '{ok,configured,authenticated}'
           printf '%s' "$session" | jq -e '.ok == true and (.configured|type) == "boolean" and .authenticated == false' >/dev/null
           echo 'DB history is readable; unauthenticated mark writes are rejected; owner configuration is reported separately'
 
