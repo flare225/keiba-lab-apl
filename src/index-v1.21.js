@@ -137,7 +137,7 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
  const automaticHistoryProgress=${automaticHistoryProgress.toString()};
  const learningProgressSummary=${learningProgressSummary.toString()};
  const api='https://keiba-lab-api.sekai-no-bancyou.workers.dev';
-  const auditApi=/\\.vercel\\.app$/.test(window.location.hostname)?'':api;
+  const auditApi=/\.vercel\.app$/.test(window.location.hostname)?'':api;
  const buildBudgetBets=${buildBudgetBets.toString()};
  const verifiedOfficialRoster=${verifiedOfficialRoster.toString()};
  const phaseInlineAvailable=${phaseInlineAvailable.toString()};
