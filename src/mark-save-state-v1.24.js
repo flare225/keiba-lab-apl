@@ -52,3 +52,37 @@ export function localMarkReceipt({payload,recordedAt,localRevision,rosterIdentit
  if(!payload||!recordedAt||!Number.isInteger(localRevision)||localRevision<1||!rosterIdentity)throw Error('端末内の控えを作成できません。');
  return {recordedAt,localRevision,rosterIdentity,payload};
 }
+
+export function initialLocalMarkPayload(target,state={}){
+ if(!target||!/^20\d{2}-\d{2}-\d{2}$/.test(target.date||'')||
+ !target.venue||!Number.isInteger(Number(target.raceNo))||Number(target.raceNo)<1||Number(target.raceNo)>12)
+  throw Error('対象レースを確認してください。');
+ if(state.phase!=='initial')throw Error('初期印の控えではありません。');
+ const roster=Array.isArray(state.roster)?state.roster:[];
+ if(roster.length<1||roster.length>18)throw Error('出走馬一覧を読み込んでから印を記録してください。');
+ const selected=state.marks;
+ if(!Array.isArray(selected)||selected.length<1||selected.length>18)throw Error('印を1頭以上選んでください。');
+ const seen=new Set(),marks=[];
+ for(const m of selected){
+  const name=String(m?.horseName||'').trim();
+  if(!name||!roster.includes(name)||seen.has(name)||!USER_MARKS.includes(m.mark))
+   throw Error('初期印と出走馬一覧の一致を確認してください。');
+  seen.add(name);
+  marks.push({horseName:name,mark:m.mark});
+ }
+ if(marks.filter(x=>x.mark==='◎').length>1||marks.filter(x=>x.mark==='○').length>1)
+  throw Error('◎または○が重複しています。');
+ const track=state.track;
+ if(track&&!TRACK_CONDITIONS.includes(track))throw Error('馬場想定が不正です。');
+ return {date:target.date,venue:target.venue,raceNo:Number(target.raceNo),phase:'initial',
+  marks,...(track?{track}:{}),localOnly:true};
+}
+export function draftMarkMatch(stored,current){
+ if(!stored||!Array.isArray(current)||!current.length)return false;
+ const marks=Array.isArray(stored.marks)?stored.marks:
+  stored.marks&&typeof stored.marks==='object'?Object.entries(stored.marks).map(([horseName,mark])=>({horseName,mark})):null;
+ if(!marks)return false;
+ const a=marks.filter(x=>USER_MARKS.includes(x.mark)).map(x=>[String(x.horseName||x.horse||x.horseNo||'').trim(),x.mark].join('|')).sort();
+ const b=current.map(x=>[String(x.horseName||x.horse||x.horseNo||'').trim(),x.mark].join('|')).sort();
+ return a.length===b.length&&a.every((x,i)=>x===b[i]);
+}
