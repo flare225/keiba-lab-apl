@@ -299,14 +299,14 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  const phaseInput=document.getElementById('phase'),trackInput=document.getElementById('markTrack');
  const markSaveCard=document.createElement('div');markSaveCard.id='userMarkSaveCard';markSaveCard.className='user-mark-save';markSaveCard.hidden=true;
  markSaveCard.innerHTML='<h3>印の保存状態・確定記録</h3>'+
- '<p>「DBで再精査」は照合だけ。自動下書き（この端末）、日時付きの端末控え、正式DBの保存は3つとも別です。DBへの印の書き込みは現在未実装です。保存日時がレース後なら事後記録です。</p>'+
+ '<p>「DBで再精査」は照合だけ。自動下書き（この端末）、日時付きの端末控え、正式DBの保存は3つとも別です。正式DBへの保存・復元は本人認証を通じて行います。保存日時がレース後なら事後記録です。</p>'+
  '<div id="userMarkDbState" class="mark-status" role="status">正式DBの保存履歴を確認中…</div>'+
  '<div id="userMarkDraftState" class="mark-status">自動下書き：端末保存状況を確認中…</div>'+
  '<div id="userMarkLocalState" class="mark-status">端末控え：なし</div>'+
  '<div class="mark-save-controls"><button type="button" class="btn secondary" id="userMarkSaveLocal">端末に印の控えを記録</button>'+
  '<button type="button" class="btn secondary" id="userMarkRefreshDb">DB保存状態を確認</button><button type="button" class="btn secondary" id="userMarkSaveCopy">印の控えをコピー</button></div>'+
  '<details><summary>正式DB保存について</summary>'+
- '<p>現在のLABOには利用者ログインがなく、正式DBへの保存操作はまだ有効にできません。管理者用秘密キーの入力は不要です。利用者認証が実装されるまで、下書き・端末控え・既存DB保存履歴の照合をご利用ください。</p></details>'+
+ '<p>正式DBへの保存にはサーバー設定と本人認証が必要です。設定未完了なら未保存と表示します。管理者用秘密キーをブラウザへ入力しないでください。</p></details>'+
  '<textarea id="userMarkSaveExport" hidden readonly rows="8" aria-label="印の控えを手動コピー"></textarea>'+
  '<p id="userMarkSaveInfo" role="status">正式出馬表と印の確認待ちです。</p>';
  manualRows.before(markSaveCard);
@@ -457,11 +457,14 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
   const choices=new Map();
   for(const x of revision.entries){
    const name=x.horse_name??x.horseName,rec=rosterNumbers[name];
-   if(!roster.includes(name)||!rec||rec.verified!==true||Number(x.horse_no??x.horseNo)!==rec.horseNo||
-    choices.has(name)||!USER_MARKS.includes(x.mark))throw Error('正式出馬表の馬番・馬名・印がDBと一致しません。');
+   const officialRequired=revision.phase!=='initial';
+   const entryNo=x.horse_no??x.horseNo;
+   if(!roster.includes(name)||choices.has(name)||!USER_MARKS.includes(x.mark)||
+    (officialRequired&&(!rec||rec.verified!==true||Number(entryNo)!==rec.horseNo))||
+    (rec?.verified===true&&entryNo!=null&&Number(entryNo)!==rec.horseNo))throw Error('出走馬一覧の馬番・馬名・印がDBと一致しません。');
    choices.set(name,x.mark);
   }
-  if(!rosterVerified)throw Error('正式出馬表の再取得が必要です。');
+  if(revision.phase!=='initial'&&!rosterVerified)throw Error('正式出馬表の再取得が必要です。');
   if(phaseInlineAvailable(phaseInput.value,rosterVerified,roster.length)){
    rosterBox.querySelectorAll('select[data-horse-name]').forEach(x=>{x.value=choices.get(x.dataset.horseName)||'';});
   }else fillDraft([...choices].map(([horse,mark])=>({horse,mark})));
