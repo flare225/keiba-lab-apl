@@ -12,11 +12,13 @@ export function assignIndependentLaboMarks(rows=[],pool=0,scored=0){
  }
  return {complete,marks,scored,pool};
 }
-export function buildIndependentLaboReview(data,humanMarks=[],numbers={}){
+export function buildIndependentLaboReview(data,humanMarks=[],numbers={},officialRoster=[]){
  if(!data?.ok||!Array.isArray(data?.assessment?.allRunners))throw Error('全馬の参考評価を取得できませんでした。');
  const a=data.assessment,all=a.allRunners;
  if(!Number.isInteger(a.runnerPool)||all.length!==a.runnerPool||all.length<1||all.length>18||new Set(all.map(r=>r.horseName)).size!==all.length)
   throw Error('出走馬全員の評価を照合できません。');
+ if(officialRoster.length&&(officialRoster.length!==all.length||new Set(officialRoster).size!==officialRoster.length||
+  officialRoster.some(name=>!all.some(r=>r.horseName===name))))throw Error('JRA正式出馬表とLABO評価対象の馬名が一致しません。');
  if(a.guardrails?.humanMarksUsedInScore!==false||a.guardrails?.targetResultUsed!==false)
   throw Error('独立評価の安全条件を確認できません。');
  const assigned=assignIndependentLaboMarks(all,a.runnerPool,a.scoredRunners),human=new Map(humanMarks.map(m=>[m.horseName,m.mark]));
@@ -24,10 +26,12 @@ export function buildIndependentLaboReview(data,humanMarks=[],numbers={}){
   const source=numbers[r.horseName]||{},lab=assigned.marks.get(r.horseName),own=human.get(r.horseName)||'—';
   const score=finiteReview(r.assessment?.evidenceScore)?r.assessment.evidenceScore:null;
   const rank=Number.isInteger(r.referenceRank)&&score!==null?r.referenceRank:null;
+  const historyRows=r.assessment?.validFinishRows??null;
+  const heldReason=lab==='保留'?(r.tiedCount>1?'同点で保留':Number(historyRows)<3?'有効着順3走未満':'データ不足・評価未確定'):null;
   return {name:r.horseName,horseNo:source.verified?source.horseNo:null,frameNo:source.verified?source.frameNo:null,
-   laboMark:lab,rank,score,tiedCount:r.tiedCount||1,humanMark:own,
-   comparison:own==='—'?'印なし':lab==='保留'?'評価保留':lab==='—'?'LABO選外':lab===own?'印が一致':'評価が異なる',
-   historyRows:r.assessment?.validFinishRows??null};
+   laboMark:lab,rank,score,tiedCount:r.tiedCount||1,humanMark:own,heldReason,
+   comparison:own==='—'?(rank!==null&&rank<=3&&lab!=='保留'&&lab!=='—'?'LABO上位・自分は無印':'印なし'):lab==='保留'?'評価保留':lab==='—'?'LABO選外':lab===own?'印が一致':'評価が異なる',
+   historyRows};
  });
  return{...assigned,rows:rows.sort((x,y)=>(x.rank??999)-(y.rank??999)||x.name.localeCompare(y.name,'ja')),
   track:a.trackAssumption||null,modelVersion:a.modelVersion||'過去走ベースの参考評価',sourceDate:data.race?.date||null};
@@ -39,7 +43,7 @@ export function renderIndependentLaboReview(review){
   (!review.complete?'<p class="notice">全馬の履歴評価がそろっていません。参考順位は表示しますが、LABO仮印はすべて保留します。</p>':'<p class="notice">同点・有効着順3走未満の馬は仮印を保留します。予想印の並びは仮の評価ルールで、的中率を保証しません。</p>');
  return summary+'<div class="labo-review-scroll"><table class="labo-review-table"><thead><tr><th>馬番・馬名</th><th>LABO仮印</th><th>参考順位・点</th><th>自分の印</th><th>比較</th></tr></thead><tbody>'+
   review.rows.map(r=>'<tr><th>'+(r.horseNo?esc(r.frameNo)+'枠 '+esc(r.horseNo)+'番 ':'')+esc(r.name)+'</th>'+
-    '<td><strong>'+esc(r.laboMark)+'</strong></td>'+
+    '<td><strong>'+esc(r.laboMark)+'</strong>'+(r.heldReason?'<small> '+esc(r.heldReason)+'</small>':'')+'</td>'+
     '<td>'+(r.rank===null?'未取得':esc(r.rank)+'位'+(r.tiedCount>1?'（同点）':''))+' / '+(r.score===null?'未取得':esc(r.score)+'点')+'</td>'+
     '<td>'+esc(r.humanMark)+'</td><td>'+esc(r.comparison)+'</td></tr>').join('')+'</tbody></table></div>';
 }
@@ -51,7 +55,7 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
  const key=t=>t?.date+'|'+t?.venue+'|'+t?.raceNo;
  function render(){
   const c=getCurrent();if(!c?.target||!last||key(c.target)!==currentKey)return;
-  try{content.innerHTML=renderIndependentLaboReview(buildIndependentLaboReview(last,c.state.marks,c.state.rosterNumbers));}
+  try{content.innerHTML=renderIndependentLaboReview(buildIndependentLaboReview(last,c.state.marks,c.state.rosterNumbers,c.state.roster));}
   catch(e){content.textContent='評価を表示できません：'+e.message;}
  }
  async function load(){
@@ -71,7 +75,7 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
    const data=await response.json();
    if(n!==request||key(getCurrent()?.target)!==currentKey)return;
    if(!response.ok||!data.ok)throw Error(data.error||'全馬の参考評価を取得できません。');
-   last=data;const review=buildIndependentLaboReview(data,getCurrent().state.marks,getCurrent().state.rosterNumbers);
+   last=data;const review=buildIndependentLaboReview(data,getCurrent().state.marks,getCurrent().state.rosterNumbers,getCurrent().state.roster);
    content.innerHTML=renderIndependentLaboReview(review);
    status.textContent=review.complete?'LABO独自の参考仮印を表示（正式DB統合順位ではありません）':'履歴不足：参考順位のみ。LABO仮印は保留';
   }catch(e){if(n===request){last=null;content.textContent='';status.textContent='LABO独自評価は取得できません：'+e.message;}}
