@@ -27,7 +27,7 @@ export function mountMarkSaving({document,window,getCurrent,verifiedMarkPayload,
   localState.textContent=saved?(samePayload(saved.payload,payload)?'端末控え：第'+saved.localRevision+'版・'+timestring(saved.recordedAt)+'（端末時計）。※DB確定ではありません。':'端末控え：前の印 '+saved.localRevision+'版があります。現在の印は未記録。'):'端末控え：なし';
   const result=lastRemote?.key===stateKey(c)?summarizeDbRevision(lastRemote.data,c.state.phase):null;
   if(result?.status==='saved'){
-   dbState.textContent='DB保存：改訂 '+result.revision.revisionNo+'版（'+result.revision.entries.length+'頭）'+(payload&&sameDbMarks(payload,result.revision)?' ／ 現在の印と一致':' ／ 現在の印とは不一致・未確定');
+   dbState.textContent='DB保存：改訂 '+result.revision.revisionNo+'版（'+result.revision.entries.length+'頭）'+(payload&&sameDbMarks(payload,result.revision)?' ／ 現在の印と一致':' ／ 現在の印とは不一致・未確定')+(result.revision.createdAt?' ／ DB保存日時 '+timestring(result.revision.createdAt):' ／ DB保存日時は未公開')+(lastRemote.checkedAt?' ／ DB再照合 '+timestring(lastRemote.checkedAt)+'（端末時計）':'');
   }else if(result?.status==='none')dbState.textContent='正式DB：この段階の保存履歴なし';
   else dbState.textContent='正式DB：未照合（「DB保存状態を確認」を押してください）';
  }
@@ -42,7 +42,7 @@ export function mountMarkSaving({document,window,getCurrent,verifiedMarkPayload,
    const body=await r.json();
    if(seq!==request||!current()||stateKey(current())!==before)return;
    if(!r.ok||!body.ok)throw Error(body.error||'DB履歴を読み取れません');
-   lastRemote={key:before,data:body};
+   lastRemote={key:before,data:body,checkedAt:stamp()};
   }catch(e){
    if(seq!==request||!current()||stateKey(current())!==before)return;
    lastRemote=null;dbState.textContent='DB保存状態の確認失敗：'+e.message;
@@ -80,7 +80,7 @@ export function mountMarkSaving({document,window,getCurrent,verifiedMarkPayload,
    const rec=summarizeDbRevision(verified,payload.phase);
    if(!verifiedResponse.ok||!verified.ok||rec.status!=='saved'||rec.revision.revisionId!==saved.revisionId||!sameDbMarks(payload,rec.revision))throw Error('書き込み応答後のDB読み戻し照合に失敗しました。DB保存状態を再確認してください。');
    if(!current()||stateKey(current())!==before||JSON.stringify(maybePayload(current()).payload)!==fingerprint){lastRemote=null;message('DBへ保存できましたが、表示中の印は変更されています。DB履歴を再確認してください。');return;}
-   lastRemote={key:before,data:verified};
+   lastRemote={key:before,data:verified,checkedAt:stamp()};
    message('正式DB保存と読み戻し照合が成功：改訂 '+saved.revisionNo+'版。保存時刻と事前LOCKは別途確認が必要です。');
   }catch(e){lastRemote=null;message('正式DB保存を確認できませんでした：'+e.message+'。重複保存を避け、まずDB保存状態を確認してください。');}
   finally{pending=false;refresh.disabled=false;const feedback=info.textContent;status();if(current()&&stateKey(current())===before)info.textContent=feedback;}
