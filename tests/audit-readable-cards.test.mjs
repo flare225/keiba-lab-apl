@@ -80,3 +80,30 @@ test('live HTML contains readable cards in audit tab, prevents visible raw JSON 
  for(const m of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(m[1]);
  assert.equal((await(await app.fetch(new Request('https://test.example/health'))).json()).version,VERSION);
 });
+
+test('final marks with zero integrated rank coverage explain why all ranks are missing without inventing scores',()=>{
+ const zero=structuredClone(audited);
+ zero.phase='final';
+ zero.race.raceName='アイルランドT';
+ zero.audit.modelCoveragePct=0;
+ zero.audit.marked=zero.audit.marked.map(x=>({...x,laboRank:null,laboScore:null,
+  alignment:{level:'unscored',reason:'LABO rank unavailable'},
+  warnings:['integrated-model-snapshot-missing']}));
+ zero.audit.unmarkedTopCandidates=[];
+ const h=renderMarkAuditCards(zero);
+ assert.match(h,/LABO統合順位：未作成/);
+ assert.match(h,/保存済み0%/);
+ assert.match(h,/印を付け直しても順位は出ません/);
+ assert.match(h,/事前固定予想は別データ/);
+ assert.match(h,/LABO順位 <strong>未取得<\/strong>/);
+ assert.doesNotMatch(h,/LABO順位 <strong>0位<\/strong>/);
+ assert.doesNotMatch(h,/統合順位：1位/);
+});
+test('partial coverage warns rank among scored horses is provisional; full coverage does not warn',()=>{
+ const partial=structuredClone(audited);
+ partial.audit.modelCoveragePct=30;
+ assert.match(renderMarkAuditCards(partial),/全馬の確定順位ではありません/);
+ const full=structuredClone(audited);
+ full.audit.modelCoveragePct=100;
+ assert.doesNotMatch(renderMarkAuditCards(full),/LABO統合順位：未作成|全馬の確定順位ではありません/);
+});
