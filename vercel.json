@@ -6,6 +6,10 @@
       "destination": "/api/lab-mark-read"
     },
     {
+      "source": "/v1/lab/user-marks/save",
+      "destination": "/api/lab-mark-read"
+    },
+    {
       "source": "/v1/lab/user-mark-audit",
       "destination": "/api/lab-audit"
     },
