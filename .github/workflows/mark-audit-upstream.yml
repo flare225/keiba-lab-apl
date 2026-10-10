@@ -1,0 +1,39 @@
+name: Mark audit upstream connectivity
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    if: startsWith(github.head_ref, 'fix/mark-audit-fetch-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect browser CORS preflight and POST without modifying data
+        env:
+          LAB_API: https://keiba-lab-api.sekai-no-bancyou.workers.dev
+          APP_ORIGIN: https://keiba-lab-apl.vercel.app
+        run: |
+          set -euo pipefail
+          echo "Checking preflight..."
+          code="$(curl -sS --max-time 15 -o /tmp/preflight.json -D /tmp/preflight-headers -w '%{http_code}' \
+            -X OPTIONS "$LAB_API/v1/lab/user-mark-audit" \
+            -H "Origin: $APP_ORIGIN" \
+            -H 'Access-Control-Request-Method: POST' \
+            -H 'Access-Control-Request-Headers: content-type' || true)"
+          echo "Preflight HTTP $code"
+          sed -n '/^access-control-/Ip' /tmp/preflight-headers || true
+          echo "Checking official card read..."
+          card="$(curl -fsS --max-time 20 --get "$LAB_API/api/jra/runners" \
+            --data-urlencode 'race_key=2026-10-11:東京:11' || true)"
+          horse="$(printf '%s' "$card" | jq -r '.data[0].horse_name // .data[0].horseName // empty' 2>/dev/null || true)"
+          if [[ -z "$horse" ]]; then echo 'Official card unavailable; skipping read-only POST';exit 0;fi
+          payload="$(jq -n --arg horse "$horse" '{date:"2026-10-11",venue:"東京",raceNo:11,phase:"post_draw",marks:[{horseName:$horse,mark:"◎"}]}')"
+          echo "Checking read-only mark POST..."
+          postcode="$(curl -sS --max-time 30 -o /tmp/post.json -D /tmp/post-headers -w '%{http_code}' \
+            -X POST "$LAB_API/v1/lab/user-mark-audit" -H "Origin: $APP_ORIGIN" \
+            -H 'content-type: application/json' -d "$payload" || true)"
+          echo "POST HTTP $postcode"
+          sed -n '/^access-control-/Ip' /tmp/post-headers || true
+          jq -c '{ok,error,stage,identityBasis,auditMode: .audit.mode}' /tmp/post.json 2>/dev/null || echo 'Response body not JSON'

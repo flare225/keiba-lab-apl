@@ -2,7 +2,7 @@ import app from './index-v1.19.js';
 import {describeAuditAlignment,summarizeMarkAudit,renderMarkAuditCards} from './mark-audit-cards-v1.22.js';
 import {WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip} from './ticket-formation-v1.22.js';
 import {mountTicketBuilder} from './ticket-builder-client-v1.22.js';
-export const VERSION='1.22.4';
+export const VERSION='1.22.5';
 export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={}){
  const input=Number(budget),yen=Number.isFinite(input)&&input>=100?Math.floor(input/100)*100:0,clean=(Array.isArray(marks)?marks:[]).filter(x=>x&&(x.horseName||Number.isInteger(x.horseNo))&&['◎','○','▲','△','☆','注'].includes(x.mark)).slice(0,18).map(x=>({...x,horseName:(Number.isInteger(x.frameNo)?x.frameNo+'枠 ':'')+(Number.isInteger(x.horseNo)?x.horseNo+'番 ':'')+(x.horseName||'')})),by=m=>clean.filter(x=>x.mark===m).map(x=>x.horseName);
  const main=[...by('◎'),...by('○'),...by('▲')].slice(0,6),insurance=[...by('△'),...by('☆'),...by('注')].slice(0,6),items=[],enabled=new Set(Array.isArray(types)?types:['馬連','ワイド','三連複','三連単']);
@@ -137,6 +137,7 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
  const automaticHistoryProgress=${automaticHistoryProgress.toString()};
  const learningProgressSummary=${learningProgressSummary.toString()};
  const api='https://keiba-lab-api.sekai-no-bancyou.workers.dev';
+  const auditApi=/\.vercel\.app$/.test(window.location.hostname)?'':api;
  const buildBudgetBets=${buildBudgetBets.toString()};
  const verifiedOfficialRoster=${verifiedOfficialRoster.toString()};
  const phaseInlineAvailable=${phaseInlineAvailable.toString()};
@@ -243,7 +244,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
   running=true;out.textContent='保存済みDBを比較中…';
   try{
    const body={date:t.date,venue:t.venue,raceNo:Number(t.raceNo),phase:'initial',marks:human};if(track)body.track=track;
-   const response=await fetch(api+'/v1/lab/mark-comparison',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),d=await response.json();
+   const response=await fetch(auditApi+'/v1/lab/mark-comparison',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),d=await response.json();
    if(n!==generation||k!==key(window.getLaboTarget?.())||!initial()||JSON.stringify(marks())!==JSON.stringify(human))return;
    if(!response.ok||!d.ok)throw Error(d.error||'比較を取得できませんでした。');
    cache=d;cacheKey=ck;cachedAt=Date.now();publishAuditCards(d);render(d,human);
@@ -258,10 +259,10 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  out.textContent='JRA出馬表とDBの印監査を確認中…';
  try{
   const body={date:t.date,venue:t.venue,raceNo:Number(t.raceNo),phase,marks:human};if(track)body.track=track;
-  const response=await fetch(api+'/v1/lab/user-mark-audit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),d=await response.json();
+  const response=await fetch(auditApi+'/v1/lab/user-mark-audit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),d=await response.json();
   if(k!==key(window.getLaboTarget?.())||phase!==phaseInput.value||JSON.stringify(human)!==JSON.stringify(marks()))return;
   publishAuditCards(d,{inline:true});
- }catch(e){if(k===key(window.getLaboTarget?.()))out.textContent='印監査の取得失敗：'+e.message;}
+ }catch(e){if(k===key(window.getLaboTarget?.())&&phase===phaseInput.value){const message='印のDB監査に接続できませんでした。出馬表の保存状態とは別の通信エラーです。接続を確認し、少し待って再精査してください。';publishAuditCards({ok:false,error:message,race:{raceName:t.raceName},phase},{inline:true});}}
 }
  function schedule(){syncDraftContext();showMode();saveInline();saveDraft();showDraft();inputNames();generation++;clearTimeout(timer);timer=setTimeout(()=>compare(),450);}
  window.auditMarks=()=>compare(true);refresh.addEventListener('click',()=>compare(true));
@@ -281,7 +282,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
 })();
 </script>`;
 export default{async fetch(request,env,ctx){
- if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view','verified-jra-roster-number-overlay','budget-safe-allocation','formation-ticket-builder-8-types','readable-mark-audit-cards','saudi-rc-selectable','official-marks-inline-all-phases']},{headers:{'cache-control':'no-store'}});
+ if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view','verified-jra-roster-number-overlay','budget-safe-allocation','formation-ticket-builder-8-types','readable-mark-audit-cards','same-origin-mark-audit-proxy','saudi-rc-selectable','official-marks-inline-all-phases']},{headers:{'cache-control':'no-store'}});
  const r=await app.fetch(request,env,ctx);if(!r.ok||!r.headers.get('content-type')?.includes('text/html'))return r;
  let html=await r.text();
  html=html.replace(/<section id="home" class="active">([\s\S]*?)<\/section>/,(_,content)=>'<section id="home" class="active"><div class="section-title">対象レース</div><div class="card"><h2 id="homeRaceTitle" class="section-title">対象レースを確認中</h2><p class="notice"><b>不足・未完了：</b><span id="homeRaceMissing">確認中…</span></p><p><b>次にすること：</b><span id="homeRaceNext"></span></p><button type="button" class="btn" id="homeRaceAction" data-home-view="race" disabled>次の操作へ</button></div><div class="card"><h2 class="section-title">現在は予想の判断補助</h2><p>過去走を使った参考比較ができます。予想精度はまだ検証できていません。</p><details><summary>評価できていない材料</summary><p>脚質・展開への適合と追い切りは参考指数に未反映です。未取得の馬場・通過順などは各馬の不足情報で確認できます。</p></details></div><div class="section-title">今週の重賞を選ぶ</div><div class="card"><div class="controls" id="raceQuickPick"><button type="button" class="btn secondary" data-race-date="2026-10-10">サウジアラビアRC（10/10）</button><button type="button" class="btn secondary" data-race-date="2026-10-11">アイルランドT（10/11）</button></div><p class="notice">レースを切り替えると馬名一覧と印の下書きも切り替わります。公式枠番は保存監査を通った場合のみ正式表示します。</p></div><div class="section-title">比較して予想を組み立てる</div><div class="card"><div class="controls"><button type="button" class="btn" data-home-view="marks">初期印・DB比較</button><button type="button" class="btn secondary" data-home-view="race">対象レース・馬場</button><button type="button" class="btn secondary" data-home-view="history">履歴・回顧</button></div></div><div class="section-title">学習データの蓄積</div><div class="card"><p id="homeLearning" role="status" class="notice">保存済みの学習データを確認中…</p><p id="homeValidation" class="notice">検証状況を確認中…</p><p id="homeCollection" class="notice"></p><p id="homeLearningUpdated" class="expected-inline-note"></p><div class="controls"><button type="button" class="btn secondary" id="refreshHomeLearning">学習状況を更新</button><a href="https://keiba-lab-api.sekai-no-bancyou.workers.dev/lab/work-progress" target="_blank" rel="noopener">補完待ち・詳しい進捗</a></div></div></section><section id="system" aria-labelledby="systemTitle"><div class="controls"><button type="button" class="btn secondary" id="closeSystem">ホームへ戻る</button></div><h2 id="systemTitle" tabindex="-1" class="section-title">システム情報</h2>'+content+'</section>');
