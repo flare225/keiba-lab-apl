@@ -86,12 +86,21 @@ export async function handleOwnerMarkSave(req,res,fetcher=fetch,env=process.env,
   const proof=await fetcher(UPSTREAM+'?'+params,{method:'GET',redirect:'error',signal:AbortSignal.timeout(25000)});
   const checked=await readJSON(proof);
   const revision=checked.latest?.find(x=>x.phase===data.phase&&x.revisionId===answer.revisionId);
-  const actual=revision?.entries?.map(x=>[Number(x.horse_no??x.horseNo)||null,x.horse_name??x.horseName,x.mark].join('|')).sort();
-  const expected=data.marks.map(x=>[x.horseNo??null,x.horseName,x.mark].join('|')).sort();
-  if(!proof.ok||!checked.ok||!revision||actual?.length!==expected.length||!expected.every((x,i)=>x===actual[i]))
+  // A pre-draw initial pick may have no official number; never infer one while verifying it.
+  const expected=new Map(data.marks.map(x=>[x.horseName,x]));
+  const entries=revision?.entries;
+  const actualNames=new Set(entries?.map(x=>x.horse_name??x.horseName)||[]);
+  const entriesMatch=Array.isArray(entries)&&entries.length===expected.size&&actualNames.size===entries.length&&entries.every(x=>{
+   const name=x.horse_name??x.horseName,mark=expected.get(name),no=x.horse_no??x.horseNo;
+   return mark&&mark.mark===x.mark&&(mark.horseNo==null||Number(no)===mark.horseNo);
+  });
+  const trackMatches=!data.track||revision?.trackCondition===data.track;
+  if(!proof.ok||!checked.ok||!revision||!entriesMatch||!trackMatches||
+    checked.raceKey!==data.date+':'+data.venue+':'+data.raceNo)
    return output(res,502,{ok:false,saveMayHaveSucceeded:true,error:'DB書き込み後の再照合が一致しませんでした。保存履歴を更新して確認してください。'});
   return output(res,200,{ok:true,stage:'db-written-readback-verified',raceKey:checked.raceKey,phase:data.phase,
-   revisionNo:revision.revisionNo,revisionId:revision.revisionId,entryCount:actual.length,verifiedAt:new Date(stamp).toISOString()});
+   revisionNo:revision.revisionNo,revisionId:revision.revisionId,entryCount:entries.length,
+   savedAt:revision.createdAt||null,verifiedAt:new Date(stamp).toISOString(),preRaceLock:false});
  }catch{
   return output(res,502,{ok:false,saveMayHaveSucceeded:true,error:'DB保存または保存後の照合が確認できませんでした。保存履歴を再確認してください。'});
  }
