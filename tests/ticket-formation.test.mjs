@@ -29,7 +29,8 @@ test('axis-one ordered nagashi, axis multies and axis-two multi have official co
  assert.equal(go('三連単','nagashi',[[1],others],true).count,36);
  assert.equal(go('三連単','nagashi2',[[1,2],[3,4,5,6]],true).count,24);
  assert.equal(go('三連複','nagashi',[[1],others]).count,6);
- assert.equal(go('三連複','nagashi2',[[1,2],others]).count,4);
+ assert.equal(go('三連複','nagashi2',[[1,2],[3,4,5,6]]).count,4);
+ assert.equal(go('三連複','nagashi2',[[1,2],others]).count,3); // the axis horse is not a valid opponent
  assert.equal(go('馬単','nagashi',[[1],others],true).count,8);
  assert.equal(go('馬単','nagashi',[[1],others],false,2).count,4);
  const third=go('三連単','nagashi',[[1],[2,3]],false,3);
