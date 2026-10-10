@@ -93,5 +93,6 @@ export function mountMarkSaving({document,window,getCurrent,verifiedMarkPayload,
  phase?.addEventListener('change',()=>{++request;lastRemote=null;status();void readRemote();});
  window.addEventListener('labo-target-change',()=>{++request;lastRemote=null;status();void readRemote();});
  window.addEventListener('labo-marks-changed',status);
+ window.addEventListener('labo-mark-db-written',()=>{void readRemote();});
  status();void readRemote();
 }
