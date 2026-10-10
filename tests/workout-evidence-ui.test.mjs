@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import app,{VERSION} from '../src/index-v1.21.js';
-import {renderWorkoutEvidence} from '../src/workout-evidence-ui.js';
+import {renderWorkoutEvidence,netkeibaWorkoutReference} from '../src/workout-evidence-ui.js';
 
 test('unconnected workout feed is labeled not acquired, without invented timings or ranking',()=>{
  const d={ok:true,stage:'not-collected',collectionConfigured:false,modelIncorporated:false,coverage:{official:2,declared:2,withWorkout:0,workoutRows:0},runners:[
@@ -46,4 +46,26 @@ test('browser includes linked race/marks workout readout and updater with all sc
  assert.match(html,/追い切りAPI公開待ち/);
  for(const [,script] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(script);
  assert.equal((await(await app.fetch(new Request('https://test.example/health'))).json()).version,VERSION);
+});
+
+test('netkeiba workout references match only verified dated Tokyo 11R targets',()=>{
+ const saudi=netkeibaWorkoutReference({date:'2026-10-10',venue:'東京',raceNo:11});
+ const ireland=netkeibaWorkoutReference({date:'2026-10-11',venue:'東京',raceNo:11});
+ assert.deepEqual(saudi,{url:'https://race.netkeiba.com/race/oikiri.html?race_id=202605040311',label:'サウジアラビアRCの追い切りを見る（netkeiba）'});
+ assert.deepEqual(ireland,{url:'https://race.netkeiba.com/race/oikiri.html?race_id=202605040411',label:'アイルランドTの追い切りを見る（netkeiba）'});
+ assert.equal(netkeibaWorkoutReference({date:'2026-10-10',venue:'京都',raceNo:11}),null);
+ assert.equal(netkeibaWorkoutReference({date:'2026-10-10',venue:'東京',raceNo:10}),null);
+ assert.equal(netkeibaWorkoutReference({date:'2026-10-12',venue:'東京',raceNo:11}),null);
+ assert.equal(netkeibaWorkoutReference(null),null);
+});
+test('browser offers external, safe workout links without claiming netkeiba data was imported',async()=>{
+ const html=await(await app.fetch(new Request('https://test.example/'))).text();
+ for(const id of ['workoutReferenceLink','workoutMarksReferenceLink']) {
+  assert.match(html,new RegExp('<a id="'+id+'"[^>]+target="_blank" rel="noopener noreferrer" hidden'));
+ }
+ assert.match(html,/外部サイトでの閲覧用です。LABOへの自動取得・予想点への反映ではありません/);
+ assert.match(html,/netkeibaWorkoutReference/);
+ const health=await(await app.fetch(new Request('https://test.example/health'))).json();
+ assert.ok(health.features.includes('netkeiba-workout-reference-links'));
+ for(const [,script] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(script);
 });
