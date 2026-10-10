@@ -37,7 +37,7 @@ test('mobile HTML has six tabs in one row and no extra row for betting',async()=
  const tabs=html.match(/<div class="tab(?: active)?" data-id="[^"]+"/g)||[];
  assert.equal(tabs.length,6,JSON.stringify(tabs));
  for(const id of ['home','race','history','marks','bets','ops'])assert.match(html,new RegExp('class="tab(?: active)?" data-id="'+id+'"'));
- assert.match(html,/\.navin\{grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+ assert.match(html,/grid-template-columns:repeat\(6,minmax\(0,1fr\)\)!important/);
  assert.match(html,/env\(safe-area-inset-bottom\)/);
  assert.match(html,/tab\.addEventListener\('keydown'/);
  assert.match(html,/scrollTo\(\{top:0,behavior:'instant'\}\)/);
