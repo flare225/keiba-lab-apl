@@ -33,7 +33,7 @@ export function generateFormationTickets({type='三連単',method='formation',gr
  const valid=arr=>arr.length===n&&new Set(arr).size===n;
  const pairs=xs=>xs.flatMap((x,i)=>xs.slice(i+1).map(y=>[x,y]));
  const triples=xs=>xs.flatMap((x,i)=>xs.slice(i+1).flatMap((y,j)=>xs.slice(i+j+2).map(z=>[x,y,z])));
- const permutations=xs=>xs.flatMap(a=>xs.filter(b=>a!==b).flatMap(b=>n===2?[[a,b]]:xs.filter(c=>c!==a&&c!==b).map(c=>[a,b,c])));
+ const permutations=xs=>xs.flatMap(a=>xs.filter(b=>a!==b).flatMap(b=>xs.length===2?[[a,b]]:xs.filter(c=>c!==a&&c!==b).map(c=>[a,b,c])));
  let results=[];
  if(n===1){results=get(0).map(x=>[x]);}
  else if(method==='box'){
