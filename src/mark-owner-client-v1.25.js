@@ -110,11 +110,18 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   try{
    const r=await fetcher('/v1/lab/user-marks?'+q,{credentials:'same-origin',cache:'no-store'});
    const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'保存データを読み込めません。');
+   const expectedRaceKey=c.target.date+':'+c.target.venue+':'+c.target.raceNo;
+   if(d.raceKey!==expectedRaceKey)throw Error('DBから別レースの保存履歴が返されました。復元を中止しました。');
    const rev=d.latest?.find(x=>x.phase===c.state.phase);
    if(!rev?.entries?.length)throw Error('この段階の正式DB保存はまだありません。');
-   if(!current()||key(current()).split('|').slice(0,4).join('|')!==stamp.split('|').slice(0,4).join('|'))throw Error('対象レースが切り替わりました。再確認してください。');
+   // A mark edit or track change after confirmation must not be silently overwritten
+   // by a slower DB response; require the exact original form snapshot.
+   if(!current()||key(current())!==stamp)throw Error('取得中にレース・馬場・印が変更されました。復元操作をやり直してください。');
    applyDbMarks(rev,c);
-   const updated=current();if(updated)lastSaved=key(updated); // Restoring must not create a duplicate revision.
+   const restored=current();
+   if(!restored||key(restored).split('|').slice(0,4).join('|')!==stamp.split('|').slice(0,4).join('|')||
+      !matchesRemote(rev,payload(restored)))throw Error('復元後の印がDB保存履歴と一致しません。自動保存完了とは判定しません。');
+   lastSaved=key(restored); // Restoring an identical revision must not create a duplicate DB write.
    msg('DBの改訂 '+rev.revisionNo+'版（'+rev.entries.length+'頭）を画面に復元しました。下書きと別に照合してください。');
   }catch(e){msg('復元できません：'+e.message);}
   finally{working=false;update();}
