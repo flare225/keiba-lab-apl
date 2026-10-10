@@ -1,5 +1,5 @@
 import app from './index-v1.19.js';
-export const VERSION='1.21.27';
+export const VERSION='1.21.28';
 export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={}){
  const input=Number(budget),yen=Number.isFinite(input)&&input>=100?Math.floor(input/100)*100:0,clean=(Array.isArray(marks)?marks:[]).filter(x=>x&&(x.horseName||Number.isInteger(x.horseNo))&&['◎','○','▲','△','☆','注'].includes(x.mark)).slice(0,18).map(x=>({...x,horseName:(Number.isInteger(x.frameNo)?x.frameNo+'枠 ':'')+(Number.isInteger(x.horseNo)?x.horseNo+'番 ':'')+(x.horseName||'')})),by=m=>clean.filter(x=>x.mark===m).map(x=>x.horseName);
  const main=[...by('◎'),...by('○'),...by('▲')].slice(0,6),insurance=[...by('△'),...by('☆'),...by('注')].slice(0,6),items=[],enabled=new Set(Array.isArray(types)?types:['馬連','ワイド','三連複','三連単']);
@@ -155,7 +155,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
 
  const storageKey=(phase=phaseInput.value)=> 'keiba-labo:expected-marks:v1:'+rosterKey+(phase==='initial'?'':'|'+phase);
  const values=()=>Object.fromEntries([...rosterBox.querySelectorAll('select[data-horse-name]')].map(s=>[s.dataset.horseName,s.value]));
- function showMode(){const inline=phaseInlineAvailable(phaseInput.value,rosterVerified,roster.length);rosterBox.hidden=!inline;manualRows.hidden=inline;rosterBox.querySelectorAll('select[data-horse-name]').forEach(x=>x.disabled=!inline);const add=[...markCard.querySelectorAll('button')].find(b=>b.textContent.includes('印を追加'));if(add)add.hidden=inline;const notice=markCard.querySelector('.notice');if(notice)notice.textContent=inline?'馬名の横で初期印を付けるとDBで仮比較します。枠・馬番はJRA照合済みだけ正式表示します。':'馬番または馬名を入力して印を付けてください。正式な印保存は出馬表と照合します。';}
+ function showMode(){const inline=phaseInlineAvailable(phaseInput.value,rosterVerified,roster.length);rosterBox.hidden=!inline;manualRows.hidden=inline;rosterBox.querySelectorAll('select[data-horse-name]').forEach(x=>x.disabled=!inline);const add=[...markCard.querySelectorAll('button')].find(b=>b.textContent.includes('印を追加'));if(add)add.hidden=inline;const notice=markCard.querySelector('.notice');if(notice)notice.textContent=inline?(initial()?'馬名の横で初期印を付けるとDBで仮比較します。':'馬名の横で枠順後・最終印を編集できます。DB再精査では正式出馬表を照合します。'):'馬番または馬名を入力して印を付けてください。正式な印保存は出馬表と照合します。';}
  function savedValues(){try{let raw=localStorage.getItem(storageKey());if(!raw&&rosterVerified&&!initial())raw=localStorage.getItem(storageKey(phaseInput.value==='final'?'post_draw':'initial'))||localStorage.getItem(storageKey('initial'));const d=JSON.parse(raw||'{}');return d&&typeof d.marks==='object'&&d.marks!==null?d.marks:{};}catch{return {};}}
  function saveInline(){if(!phaseInlineAvailable(phaseInput.value,rosterVerified,roster.length))return;try{localStorage.setItem(storageKey(),JSON.stringify({snapshotId:rosterSnapshot,marks:Object.fromEntries(selectedExpectedMarks(roster,values()).map(m=>[m.horseName,m.mark]))}));}catch{const note=rosterBox.querySelector('.expected-inline-note');if(note)note.textContent='このブラウザへの保存ができませんでした。画面を閉じる前に印を控えてください。';}}
  function applyInlinePhaseValues(){const stored=savedValues();rosterBox.querySelectorAll('select[data-horse-name]').forEach(x=>{x.value=stored[x.dataset.horseName]||'';});}
@@ -180,7 +180,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  }
  out.addEventListener('click',e=>{const button=e.target.closest?.('button[data-pool-action]');if(!button||!lastRendered)return;const action=button.dataset.poolAction;if(action==='marked')poolOnlyMarked=!poolOnlyMarked;else poolOrder=action;render(lastRendered.d,lastRendered.human);out.querySelector('[data-pool-action="'+action+'"]')?.focus({preventScroll:true});});
  async function compare(force=false){
-  if(!initial()){if(force)await window.auditOfficialMarks?.();return;}
+  if(!initial()){if(phaseInlineAvailable(phaseInput.value,rosterVerified,roster.length))await auditOfficialInline();else if(force)await window.auditOfficialMarks?.();return;}
   const t=window.getLaboTarget?.(),human=marks();if(!t){out.textContent='対象レースを取得中です。';return;}
   if(!human.length){out.textContent='想定表で初期印を選ぶと、自動で仮比較します。';return;}
   if(running){queued=true;return;}
@@ -196,6 +196,21 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
   }catch(e){if(n===generation)out.textContent='仮比較を保留：'+e.message;}
   finally{running=false;if(queued){queued=false;schedule();}}
  }
+ async function auditOfficialInline(){
+ const t=window.getLaboTarget?.(),phase=phaseInput.value,track=trackInput.value,human=marks(),k=key(t);
+ if(!t||!rosterVerified){out.textContent='JRA番号付き出馬表の照合待ちです。初期印だけ準備できます。';return;}
+ if(!human.length){out.textContent='出馬表の馬名の横で印を付けてください。';return;}
+ if(phase==='final'&&!track){out.textContent='最終印のDB再精査には馬場想定を指定してください。';return;}
+ out.textContent='JRA出馬表とDBの印監査を確認中…';
+ try{
+  const body={date:t.date,venue:t.venue,raceNo:Number(t.raceNo),phase,marks:human};if(track)body.track=track;
+  const response=await fetch(api+'/v1/lab/user-mark-audit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),d=await response.json();
+  if(k!==key(window.getLaboTarget?.())||phase!==phaseInput.value||JSON.stringify(human)!==JSON.stringify(marks()))return;
+  document.getElementById('auditResult').textContent=JSON.stringify(d,null,2);out.className='precard-horses';
+  out.innerHTML='<div class="labo-comparison-title">'+esc(label())+' / 枠順後の印・DB照合</div><p class="notice">印はLABOスコアを変えません。監査結果は予想精度の証明や事前LOCK完了ではありません。</p><pre class="result">'+esc(JSON.stringify(d,null,2))+'</pre>';
+  if(!response.ok||d.ok===false)out.insertAdjacentHTML('afterbegin','<p class="phase-gate warn">監査保留：'+esc(d.error||d.message||'公式データを確認してください')+'</p>');
+ }catch(e){if(k===key(window.getLaboTarget?.()))out.textContent='印監査の取得失敗：'+e.message;}
+}
  function schedule(){syncDraftContext();showMode();saveInline();saveDraft();showDraft();inputNames();generation++;clearTimeout(timer);timer=setTimeout(()=>compare(),450);}
  window.auditMarks=()=>compare(true);refresh.addEventListener('click',()=>compare(true));
  document.getElementById('marks').addEventListener('input',schedule);document.getElementById('marks').addEventListener('change',schedule);
