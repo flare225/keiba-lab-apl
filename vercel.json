@@ -13,5 +13,13 @@
       "source": "/(.*)",
       "destination": "/api/v116"
     }
-  ]
+  ],
+  "functions": {
+    "api/lab-audit.js": {
+      "maxDuration": 35
+    },
+    "api/lab-comparison.js": {
+      "maxDuration": 35
+    }
+  }
 }
