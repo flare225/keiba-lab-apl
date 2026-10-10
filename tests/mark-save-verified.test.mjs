@@ -74,7 +74,7 @@ test('proxy forwards ephemeral authorization to fixed endpoint and returns backe
 });
 test('live browser has explicit DB state, password-only save and local receipt with nonprelock notice',async()=>{
  const html=await(await app.fetch(new Request('https://example.com/'))).text();
- assert.match(html,/markSaveCard\\.id='userMarkSaveCard'/);
+ assert.ok(html.includes("markSaveCard.id='userMarkSaveCard'"));
  for(const id of ['userMarkDbState','userMarkLocalState','userMarkSaveLocal','userMarkSaveDb','userMarkWriteKey','userMarkSaveCopy','userMarkRefreshDb']){
   assert.match(html,new RegExp('id="'+id+'"'));
  }
