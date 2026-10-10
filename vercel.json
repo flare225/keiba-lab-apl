@@ -2,6 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/v1/lab/user-marks",
+      "destination": "/api/lab-mark-read"
+    },
+    {
+      "source": "/v1/lab/user-marks/save",
+      "destination": "/api/lab-mark-write"
+    },
+    {
       "source": "/v1/lab/user-mark-audit",
       "destination": "/api/lab-audit"
     },
@@ -19,6 +27,12 @@
       "maxDuration": 35
     },
     "api/lab-comparison.js": {
+      "maxDuration": 35
+    },
+    "api/lab-mark-read.js": {
+      "maxDuration": 35
+    },
+    "api/lab-mark-write.js": {
       "maxDuration": 35
     }
   }
