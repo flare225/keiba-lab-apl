@@ -69,6 +69,25 @@ jobs:
           grep -q '/v1/lab/deploy-check' <<<"$html"
           grep -q '本番API接続 OK' <<<"$html"
 
+      - name: Verify mark revision DB read and protect uncredentialed writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl -fsS --retry 2 --retry-delay 2 --max-time 20 --get \
+            "$PRODUCTION_URL/v1/lab/user-marks" \
+            --data-urlencode 'date=2026-10-10' --data-urlencode 'venue=東京' \
+            --data-urlencode 'race_no=11' --data-urlencode 'phase=final')"
+          printf '%s' "$body" | jq -e '.ok == true and .stage == "user-mark-history" and (.latest|type) == "array"' >/dev/null
+          echo 'Verified live final-mark DB history can be checked via same-origin app'
+          error_file="$(mktemp)"
+          status="$(curl -sS -o "$error_file" -w '%{http_code}' -X POST \
+            "$PRODUCTION_URL/v1/lab/user-marks/save" \
+            -H 'content-type: application/json' \
+            -d '{"date":"2026-10-10","venue":"東京","raceNo":11,"phase":"final","confirm":"SAVE","track":"良","marks":[]}' || true)"
+          test "$status" = "401"
+          jq -e '.ok == false' "$error_file" >/dev/null
+          echo 'Unauthenticated writes blocked'
+
       - name: Verify same-origin mark audit POST (read-only)
         shell: bash
         env:
