@@ -84,9 +84,9 @@ jobs:
             "$PRODUCTION_URL/v1/lab/user-marks/save" \
             -H 'content-type: application/json' \
             -d '{"date":"2026-10-10","venue":"東京","raceNo":11,"phase":"final","confirm":"SAVE","track":"良","marks":[]}' || true)"
-          test "$status" = "401"
+          test "$status" = "405"
           jq -e '.ok == false' "$error_file" >/dev/null
-          echo 'Unauthenticated writes blocked'
+          echo 'Write route disabled until user authentication is implemented'
 
       - name: Verify same-origin mark audit POST (read-only)
         shell: bash
