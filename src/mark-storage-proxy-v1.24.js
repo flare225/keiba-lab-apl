@@ -3,7 +3,7 @@ const send=(res,status,body)=>res.status(status).setHeader('cache-control','no-s
 export function parseMarkHistoryQuery(q){
  const date=String(q?.date||''),venue=String(q?.venue||''),raceNo=Number(q?.race_no),phase=String(q?.phase||'');
  if(!/^20\d{2}-\d{2}-\d{2}$/.test(date)||!venue||venue.length>30||
- !Number.isInteger(raceNo)||raceNo<1||raceNo>12||!['post_draw','final'].includes(phase))
+ !Number.isInteger(raceNo)||raceNo<1||raceNo>12||!['initial','post_draw','final'].includes(phase))
  throw Error('レース指定が不正です。');
  return new URLSearchParams({date,venue,race_no:String(raceNo),phase});
 }
