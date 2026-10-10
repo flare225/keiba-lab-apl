@@ -1,4 +1,4 @@
-export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPayload,initialLocalMarkPayload,applyDbMarks,fetcher=fetch}){
+export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPayload,initialLocalMarkPayload,applyDbMarks,fetcher=fetch,scheduleDelay=1600}){
  const el=id=>document.getElementById(id),root=el('ownerMarkDbControls');
  if(!root)return;
  const state=el('ownerMarkDbStatus'),password=el('ownerMarkPassword'),login=el('ownerMarkLogin'),
@@ -19,7 +19,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  const update=()=>{
   const c=current();
   loginRow.hidden=!configured||authenticated;login.disabled=!configured||authenticated||working;
-  logout.hidden=!authenticated;save.disabled=!authenticated||working||!c||!c.state.marks.length;
+  logout.hidden=!authenticated;logout.disabled=working;save.disabled=!authenticated||working||!c||!c.state.marks.length;
   restore.disabled=!authenticated||working||!c;
  };
  const msg=x=>{state.textContent=x;update();};
@@ -44,6 +44,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   finally{working=false;update();if(authenticated)queue();}
  });
  logout.addEventListener('click',async()=>{
+  if(working)return;
   try{await fetcher('/v1/lab/user-mark-session',{method:'DELETE',credentials:'same-origin'});}catch{}
   authenticated=false;lastSaved='';msg('ログアウトしました。DB正式保存は停止中です。');
  });
@@ -56,7 +57,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
    const r=await fetcher('/v1/lab/user-marks/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
    const d=await r.json();if(!r.ok||!d.ok||d.stage!=='db-written-readback-verified')throw Error(d.error||'保存を確認できません。');
    lastSaved=snapshot;
-   if(key(current()||c)===snapshot)msg('DB保存済み・再照合成功：改訂 '+d.revisionNo+'版（'+d.entryCount+'頭）／照合日時 '+d.verifiedAt+'。※レース前LOCK・学習完了の証明ではありません。');
+   if(key(current()||c)===snapshot)msg('DB保存済み・再照合成功：改訂 '+d.revisionNo+'版（'+d.entryCount+'頭）／DB保存日時 '+(d.savedAt||'未取得')+'／照合日時 '+d.verifiedAt+'。※レース前LOCK・学習完了の証明ではありません。');
    window.dispatchEvent(new Event('labo-mark-db-written'));
   }catch(e){
    if(key(current()||c)===snapshot)msg('DB保存を確認できません：'+e.message+'。端末下書きは残っています。');
@@ -67,7 +68,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   }
  }
  const queue=()=>{if(timer!==null)clearTimeout(timer);if(!authenticated)return;
-  timer=setTimeout(()=>{timer=null;void persist(false);},1600);
+  timer=setTimeout(()=>{timer=null;void persist(false);},scheduleDelay);
  };
  save.addEventListener('click',()=>{if(timer!==null)clearTimeout(timer);timer=null;void persist(true);});
  window.addEventListener('labo-marks-changed',()=>{const c=current();if(authenticated&&c&&key(c)!==lastSaved)msg('DB未保存：現在の印は変更されています。自動保存とDB再照合を待っています。');queue();});
