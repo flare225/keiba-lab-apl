@@ -62,6 +62,7 @@ export function generateFormationTickets({type='三連単',method='formation',gr
  for(const r of results){
   if(!valid(r))continue;
   const converted=frameOnly?r.map(x=>horseMap.get(x).frameNo):r.slice();
+  if(frameOnly&&method==='box'&&converted[0]===converted[1])continue; // JRA 枠連BOX excludes ゾロ目; 流し・フォーメーション may include it.
   if(!ordered)converted.sort((a,b)=>a-b);
   const key=converted.join('-');
   if(unique.has(key))continue;unique.add(key);combos.push(converted);
