@@ -52,7 +52,7 @@ jobs:
             actual="$(printf '%s' "$health" | jq -r '.version // empty' 2>/dev/null || true)"
             readable="$(printf '%s' "$health" | jq -r '.features | index("touch-friendly-global-styles") // empty' 2>/dev/null || true)"
             preview="$(printf '%s' "$health" | jq -r '.features | index("precard-mark-db-preview") // empty' 2>/dev/null || true)"
-            if [[ "$actual" == "${EXPECTED_VERSION}" && -n "$readable" && -n "$preview" ]] && grep -q 'expected-history-coverage-visible' <<<"$health" && grep -q 'historyCoverage' <<<"$html" && grep -q 'formal-card-gate-visible' <<<"$health" && grep -q 'phaseGate' <<<"$html" && grep -q 'phase-draft-carryover' <<<"$health" && grep -q 'carryMarkDraft' <<<"$html" && grep -q 'vertical-runner-comparison-cards' <<<"$health" && grep -q 'labo-pool-card' <<<"$html" && grep -q 'expected-roster-inline-marks' <<<"$health" && grep -q 'expectedInlineRoster' <<<"$html" && grep -q 'full-runner-initial-comparison' <<<"$health" && grep -q '対象レースの印・DB比較' <<<"$html" && grep -q 'サウジアラビアRC（10/10）' <<<"$html" && grep -q 'アイルランドT（10/11）' <<<"$html" && grep -q 'saudi-rc-selectable' <<<"$health" && grep -q 'formation-ticket-builder-8-types' <<<"$health" && grep -q 'readable-mark-audit-cards' <<<"$health" && grep -q 'laboAuditReport' <<<"$html" && grep -q 'audit-readable-horse' <<<"$html" && grep -q 'renderMarkAuditCards' <<<"$html" && grep -q 'ticketGroups' <<<"$html" && grep -q 'ticketSlipItems' <<<"$html" && grep -q 'ticketFromMarks' <<<"$html" && grep -q 'ticketBudget' <<<"$html" && grep -q '/v1/lab/mark-comparison' <<<"$html" && grep -q 'DBで仮比較' <<<"$html" && grep -q '想定馬・馬番未確定' <<<"$html" && grep -q 'JRA想定馬情報を更新して仮比較' <<<"$html" && grep -q 'resultBlindReplay' <<<"$html" && grep -q '/v1/lab/replay' <<<"$html" && grep -q '実際の上位3頭' <<<"$html" && grep -q '完走馬の上がり3F' <<<"$html" && grep -q ':focus-visible' <<<"$html"; then
+            if [[ "$actual" == "${EXPECTED_VERSION}" && -n "$readable" && -n "$preview" ]] && grep -q 'expected-history-coverage-visible' <<<"$health" && grep -q 'historyCoverage' <<<"$html" && grep -q 'formal-card-gate-visible' <<<"$health" && grep -q 'phaseGate' <<<"$html" && grep -q 'phase-draft-carryover' <<<"$health" && grep -q 'carryMarkDraft' <<<"$html" && grep -q 'vertical-runner-comparison-cards' <<<"$health" && grep -q 'labo-pool-card' <<<"$html" && grep -q 'expected-roster-inline-marks' <<<"$health" && grep -q 'expectedInlineRoster' <<<"$html" && grep -q 'full-runner-initial-comparison' <<<"$health" && grep -q '対象レースの印・DB比較' <<<"$html" && grep -q 'サウジアラビアRC（10/10）' <<<"$html" && grep -q 'アイルランドT（10/11）' <<<"$html" && grep -q 'saudi-rc-selectable' <<<"$health" && grep -q 'formation-ticket-builder-8-types' <<<"$health" && grep -q 'readable-mark-audit-cards' <<<"$health" && grep -q 'same-origin-mark-audit-proxy' <<<"$health" && grep -q 'laboAuditReport' <<<"$html" && grep -q 'audit-readable-horse' <<<"$html" && grep -q 'renderMarkAuditCards' <<<"$html" && grep -q 'ticketGroups' <<<"$html" && grep -q 'ticketSlipItems' <<<"$html" && grep -q 'ticketFromMarks' <<<"$html" && grep -q 'ticketBudget' <<<"$html" && grep -q '/v1/lab/mark-comparison' <<<"$html" && grep -q 'DBで仮比較' <<<"$html" && grep -q '想定馬・馬番未確定' <<<"$html" && grep -q 'JRA想定馬情報を更新して仮比較' <<<"$html" && grep -q 'resultBlindReplay' <<<"$html" && grep -q '/v1/lab/replay' <<<"$html" && grep -q '実際の上位3頭' <<<"$html" && grep -q '完走馬の上がり3F' <<<"$html" && grep -q ':focus-visible' <<<"$html"; then
               echo "Production browser is serving APP v${EXPECTED_VERSION} with readable replay results"
               exit 0
             fi
@@ -68,6 +68,24 @@ jobs:
           html="$(curl -fsS --max-time 10 "$PRODUCTION_URL/")"
           grep -q '/v1/lab/deploy-check' <<<"$html"
           grep -q '本番API接続 OK' <<<"$html"
+
+      - name: Verify same-origin mark audit POST (read-only)
+        shell: bash
+        env:
+          LAB_API: https://keiba-lab-api.sekai-no-bancyou.workers.dev
+        run: |
+          set -euo pipefail
+          card="$(curl -fsS --max-time 15 -G "$LAB_API/api/jra/runners" --data-urlencode 'race_key=2026-10-11:東京:11')"
+          horse="$(printf '%s' "$card" | jq -r '.data[0].horse_name // .data[0].horseName // empty')"
+          if [[ -z "$horse" ]]; then echo 'Verified JRA runner is unavailable' >&2; exit 1; fi
+          body="$(jq -cn --arg horse "$horse" '{date:"2026-10-11",venue:"東京",raceNo:11,phase:"post_draw",marks:[{horseName:$horse,mark:"◎"}]}')"
+          response="$(curl -fsS --retry 2 --retry-delay 2 --retry-all-errors --max-time 35 -X POST \
+            "$PRODUCTION_URL/v1/lab/user-mark-audit" -H 'content-type: application/json' -d "$body")"
+          if ! printf '%s' "$response" | jq -e '.ok == true and .stage == "user-mark-db-crosscheck" and .audit.mode == "official-card-model-crosscheck" and (.audit.marked|length)==1' >/dev/null; then
+            printf '%s\n' "$response" | jq -c '{ok,stage,error,auditMode:.audit.mode}' >&2 || true
+            exit 1
+          fi
+          echo 'Same-origin user-mark-audit proxy returned verified official model audit'
 
       - name: Diagnose Saudi and Ireland race data (read-only)
         shell: bash
