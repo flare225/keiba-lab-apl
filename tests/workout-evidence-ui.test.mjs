@@ -65,6 +65,7 @@ test('browser offers external, safe workout links without claiming netkeiba data
  }
  assert.match(html,/外部サイトでの閲覧用です。LABOへの自動取得・予想点への反映ではありません/);
  assert.match(html,/netkeibaWorkoutReference/);
- assert.match(html,/netkeiba-workout-reference-links/);
+ const health=await(await app.fetch(new Request('https://test.example/health'))).json();
+ assert.ok(health.features.includes('netkeiba-workout-reference-links'));
  for(const [,script] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(script);
 });
