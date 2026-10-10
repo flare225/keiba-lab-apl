@@ -26,7 +26,7 @@ export async function forwardMarkAudit(req,res,mode,fetchImpl=fetch){
   const data=parseMarkRequest(req.body);
   const upstream=await fetchImpl(TARGET+ALLOWED[mode],{
    method:'POST',headers:{'content-type':'application/json','accept':'application/json'},
-   body:JSON.stringify(data),signal:AbortSignal.timeout(20000),redirect:'error'
+   body:JSON.stringify(data),signal:AbortSignal.timeout(25000),redirect:'error'
   });
   const contentType=upstream.headers.get('content-type')||'';
   const text=await upstream.text();
