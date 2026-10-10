@@ -44,13 +44,15 @@ test('only owner save can call Worker with server secret, then checks DB revisio
   calls.push({url,options});
   if(options.method==='POST')return new Response(JSON.stringify({ok:true,stage:'user-mark-saved-and-crosschecked',revisionId:'2026-10-11:東京:11|final|1'}),
    {headers:{'content-type':'application/json'}});
-  return new Response(JSON.stringify({ok:true,raceKey:'2026-10-11:東京:11',latest:[{phase:'final',revisionNo:1,revisionId:'2026-10-11:東京:11|final|1',entries:[
+  return new Response(JSON.stringify({ok:true,raceKey:'2026-10-11:東京:11',latest:[{phase:'final',revisionNo:1,revisionId:'2026-10-11:東京:11|final|1',trackCondition:'良',createdAt:'2026-10-10T01:02:03.000Z',entries:[
    {horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]}]}),{headers:{'content-type':'application/json'}});
  };
  const r=response();await handleOwnerMarkSave(pass(cookie),r.res,fake,env,stamp+5);
  assert.equal(r.values.code,200);
  assert.equal(r.values.body.stage,'db-written-readback-verified');
  assert.equal(r.values.body.entryCount,2);
+ assert.equal(r.values.body.savedAt,'2026-10-10T01:02:03.000Z');
+ assert.equal(r.values.body.preRaceLock,false);
  assert.equal(calls.length,2);
  assert.equal(calls[0].options.headers.authorization,'Bearer '+env.LABO_MARK_DB_WRITE_TOKEN);
  assert.equal(calls[1].options.headers?.authorization,undefined);
@@ -75,4 +77,29 @@ test('save API requires login and refuses cross-site requests, invalid marks and
  },env,1200);
  assert.equal(fake.values.code,502);
  assert.equal(fake.values.body.saveMayHaveSucceeded,true);
+});
+
+test('initial horse names round-trip even when later official card assigns numbers',async()=>{
+ const stamp=8000,cookie='labo_owner_marks_v1='+createOwnerSession(env.LABO_MARK_SESSION_SECRET,stamp);
+ const request=req('POST',{date:'2026-10-11',venue:'東京',raceNo:11,phase:'initial',confirm:'SAVE',marks:[
+  {horseName:'馬A',mark:'◎'},{horseName:'馬B',mark:'○'}]},cookie);
+ const fake=async(url,opts)=>new Response(JSON.stringify(opts.method==='POST'?
+  {ok:true,stage:'user-mark-saved-and-crosschecked',revisionId:'rev-1'}:
+  {ok:true,raceKey:'2026-10-11:東京:11',latest:[{phase:'initial',revisionId:'rev-1',revisionNo:1,
+   entries:[{horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]}]}),
+   {headers:{'content-type':'application/json'}});
+ const result=response();await handleOwnerMarkSave(request,result.res,fake,env,stamp+1);
+ assert.equal(result.values.code,200);
+ assert.equal(result.values.body.entryCount,2);
+});
+test('readback does not certify another race or changed explicit track assumption',async()=>{
+ const stamp=9000,cookie='labo_owner_marks_v1='+createOwnerSession(env.LABO_MARK_SESSION_SECRET,stamp);
+ const fake=async(url,opts)=>new Response(JSON.stringify(opts.method==='POST'?
+  {ok:true,stage:'user-mark-saved-and-crosschecked',revisionId:'rev-2'}:
+  {ok:true,raceKey:'2026-10-10:東京:11',latest:[{phase:'final',revisionId:'rev-2',revisionNo:1,trackCondition:'重',
+   entries:[{horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]}]}),
+   {headers:{'content-type':'application/json'}});
+ const result=response();await handleOwnerMarkSave(pass(cookie),result.res,fake,env,stamp+1);
+ assert.equal(result.values.code,502);
+ assert.equal(result.values.body.saveMayHaveSucceeded,true);
 });
