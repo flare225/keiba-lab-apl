@@ -38,10 +38,14 @@ export function sameDbMarks(payload,receipt){
  const entries=receipt?.entries;
  if(!payload||receipt?.phase!==payload.phase||!Number.isInteger(receipt?.revisionNo)||receipt.revisionNo<1||
  !Array.isArray(entries)||entries.length!==payload.marks.length)return false;
- if((receipt.trackCondition||'')!==(payload.track||''))return false;
- const expected=payload.marks.map(x=>[x.horseNo,x.horseName,x.mark].join('|')).sort();
- const actual=entries.map(x=>[Number(x.horse_no??x.horseNo),x.horse_name??x.horseName,x.mark].join('|')).sort();
- return expected.every((x,i)=>x===actual[i]);
+ if(payload.track&&receipt.trackCondition!==payload.track)return false;
+ if(payload.phase!=='initial'&&(receipt.trackCondition||'')!==(payload.track||''))return false;
+ const expected=new Map(payload.marks.map(x=>[x.horseName,x]));
+ const actualNames=new Set(entries.map(x=>x.horse_name??x.horseName));
+ return actualNames.size===entries.length&&entries.every(e=>{
+  const name=e.horse_name??e.horseName,m=expected.get(name),number=e.horse_no??e.horseNo;
+  return m&&m.mark===e.mark&&(m.horseNo==null||Number(number)===m.horseNo);
+ });
 }
 export function summarizeDbRevision(data,phase){
  if(!data?.ok||!Array.isArray(data.latest))return{status:'unavailable',revision:null};
