@@ -7,7 +7,7 @@
     },
     {
       "source": "/v1/lab/user-marks/save",
-      "destination": "/api/lab-mark-write"
+      "destination": "/api/lab-mark-read"
     },
     {
       "source": "/v1/lab/user-mark-audit",
@@ -30,9 +30,6 @@
       "maxDuration": 35
     },
     "api/lab-mark-read.js": {
-      "maxDuration": 35
-    },
-    "api/lab-mark-write.js": {
       "maxDuration": 35
     }
   }
