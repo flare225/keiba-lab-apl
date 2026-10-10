@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildBudgetBets, verifiedOfficialRoster } from '../src/index-v1.21.js';
+import { buildBudgetBets, verifiedOfficialRoster, provisionalStoredRoster } from '../src/index-v1.21.js';
 
 const marks=[
  {horseName:'A',horseNo:1,frameNo:1,mark:'◎'},
@@ -60,4 +60,23 @@ test('unchecking every wager type must never create default wagers',()=>{
  assert.equal(unselected.ok,false);
  assert.equal(unselected.total,0);
  assert.deepEqual(unselected.items,[]);
+});
+
+test('stored JRA names remain usable for INITIAL draft while unverified cards never unlock official wagering',()=>{
+ const records=[{horse_name:'馬A',horse_no:1,frame_no:1},{horse_name:'馬B',horse_no:2,frame_no:1}];
+ const provisional=provisionalStoredRoster(records);
+ assert.deepEqual(provisional.runners.map(x=>[x.horseName,x.horseNo,x.frameNo]),[['馬A',1,1],['馬B',2,1]]);
+ assert.equal(provisional.officialVerified,false);
+ assert.equal(provisional.source.kind,'stored-jra-pending-audit');
+ assert.equal(verifiedOfficialRoster(records,{ok:true,ops:{cardComplete:false}}),null);
+});
+test('incomplete stored DB card is visibly provisional; corrupt or duplicate identities are refused',()=>{
+ const rows=[{horse_name:'馬A',horse_no:3,frame_no:null},{horse_name:'馬B',horse_no:7,frame_no:3}];
+ const d=provisionalStoredRoster(rows);
+ assert.ok(d);assert.equal(d.officialVerified,false);
+ assert.equal(d.runners[0].frameNo,null);
+ assert.equal(provisionalStoredRoster([]),null);
+ assert.equal(provisionalStoredRoster([{horse_name:'',horse_no:1}]),null);
+ assert.equal(provisionalStoredRoster([{horse_name:'馬A',horse_no:1},{horse_name:'馬A',horse_no:2}]),null);
+ assert.equal(provisionalStoredRoster([{horse_name:'馬A',horse_no:1},{horse_name:'馬B',horse_no:1}]),null);
 });
