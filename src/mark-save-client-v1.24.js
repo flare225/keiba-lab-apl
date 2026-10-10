@@ -38,7 +38,7 @@ export function mountMarkSaving({document,window,getCurrent,verifiedMarkPayload,
   const saved=localReceipt(c),draft=draftRecord(c);
   draftState.textContent=draft?(draft.matched?'自動下書き：現在の印 '+c.state.marks.length+'頭を端末保存済み':'自動下書き：以前の印が端末にあります（現在の表示との一致未確認）')+(draft.data?.savedAt?' ／ '+timestring(draft.data.savedAt)+'（端末時計）':' ／ 保存日時の記録なし')+'。※正式DB保存とは別です。':'自動下書き：未確認。印を選択して保存できたか確認してください。';
   if(!payload){info.textContent=error;saveLocal.disabled=true;}
-  else{info.textContent='現在の印 '+payload.marks.length+'頭。時刻付き端末控えを記録できます。正式DBへの新規保存は未実装です。';
+  else{info.textContent='現在の印 '+payload.marks.length+'頭。時刻付き端末控えを記録できます。正式DB保存は本人認証とサーバー設定が有効な場合に利用できます。';
    saveLocal.disabled=false;}
   localState.textContent=saved?(samePayload(saved.payload,payload)?'端末控え：第'+saved.localRevision+'版・'+timestring(saved.recordedAt)+'（端末時計）。※DB確定ではありません。':'端末控え：前の印 '+saved.localRevision+'版があります。現在の印は未記録。'):'端末控え：なし';
   const result=lastRemote?.key===stateKey(c)?summarizeDbRevision(lastRemote.data,c.state.phase):null;
