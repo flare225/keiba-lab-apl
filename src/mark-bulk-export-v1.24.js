@@ -2,14 +2,14 @@ export const MARK_EXPORT_PHASES=['initial','post_draw','final'];
 export const MARK_EXPORT_LABELS={initial:'初期印',post_draw:'枠順後',final:'最終印'};
 export const MARK_EXPORT_CHOICES=['◎','○','▲','△','☆','注','消'];
 const cleanMark=x=>MARK_EXPORT_CHOICES.includes(x)?x:null;
-const parseRace=x=>{
+export const parseRace=x=>{
  const parts=String(x||'').split('|');
  if(parts.length!==3||!/^20\d{2}-\d{2}-\d{2}$/.test(parts[0])||
  !['東京','京都','中山','阪神','新潟','福島','中京','小倉','札幌','函館'].includes(parts[1])||
  !/^\d{1,2}$/.test(parts[2])||Number(parts[2])<1||Number(parts[2])>12)return null;
  return {date:parts[0],venue:parts[1],raceNo:Number(parts[2])};
 };
-function snapshot(data,race,phase,source){
+export function snapshot(data,race,phase,source){
  const names=data?.marks;
  if(!names||typeof names!=='object'||Array.isArray(names))return null;
  let valid=[];
@@ -28,7 +28,7 @@ function snapshot(data,race,phase,source){
  const verified=valid.every(x=>Number.isInteger(x.horseNo)&&x.horseNo>=1&&x.horseNo<=18&&Number.isInteger(x.frameNo)&&x.frameNo>=1&&x.frameNo<=8);
  return{...race,phase,source,marks:valid,officialVerified:verified,deviceSavedAt:typeof data.savedAt==='string'?data.savedAt:null,track:data.track||''};
 }
-function readStored(storage,key){try{return JSON.parse(storage.getItem(key)||'null');}catch{return null;}}
+export function readStored(storage,key){try{return JSON.parse(storage.getItem(key)||'null');}catch{return null;}}
 export function collectSavedRaceMarks(storage,{date=null}={}){
  const entries=new Map();
  const prefix='keiba-labo:expected-marks:v1:';
