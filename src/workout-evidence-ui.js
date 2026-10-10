@@ -1,3 +1,11 @@
+export function netkeibaWorkoutReference(target){
+ if(!target||target.venue!=='東京'||Number(target.raceNo)!==11)return null;
+ const raceIds={'2026-10-10':'202605040311','2026-10-11':'202605040411'};
+ const raceId=raceIds[target.date];
+ if(!raceId)return null;
+ return {url:'https://race.netkeiba.com/race/oikiri.html?race_id='+raceId,
+  label:target.date==='2026-10-10'?'サウジアラビアRCの追い切りを見る（netkeiba）':'アイルランドTの追い切りを見る（netkeiba）'};
+}
 export function renderWorkoutEvidence(data){
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  if(!data||data.ok!==true)return{status:'追い切りデータを確認できません。',detail:'取得エラーのため未取得と判定しません。後でもう一度確認してください。'};
@@ -14,14 +22,17 @@ export function renderWorkoutEvidence(data){
  }).join('');
  return{status,detail:'<p class="workout-banner">'+esc(status)+'</p><p class="notice">'+esc(source)+'</p><p class="notice">追い切りの計時は「参考資料」。LABOの評価点・予想印・学習にはまだ自動反映していません。未取得の馬に仮の時計や評価を付けません。</p>'+(runners.length?'<details class="workout-list" '+(completed?'':'')+'><summary>出走馬ごとの追い切り状況（'+runners.length+'頭）</summary>'+cards+'</details>':'<p class="notice">正式出馬表の馬名・馬番が確認できると、馬ごとの取得状況を表示します。</p>')};
 }
-export function mountWorkoutEvidence({document,window,api,render=renderWorkoutEvidence}){
- const status=document.getElementById('workoutStatus'),body=document.getElementById('workoutDetails'),marks=document.getElementById('workoutMarksStatus'),refresh=document.getElementById('workoutRefresh');
+export function mountWorkoutEvidence({document,window,api,render=renderWorkoutEvidence,reference=netkeibaWorkoutReference}){
+ const status=document.getElementById('workoutStatus'),body=document.getElementById('workoutDetails'),marks=document.getElementById('workoutMarksStatus'),refresh=document.getElementById('workoutRefresh'),links=[document.getElementById('workoutReferenceLink'),document.getElementById('workoutMarksReferenceLink')].filter(Boolean);
  if(!status||!body)return;
  let seq=0,lastKey='';
  async function load(){
   const current=++seq,t=window.getLaboTarget?.();
   const key=t?t.date+'|'+t.venue+'|'+t.raceNo:'';
-  lastKey=key;refresh.disabled=true;status.textContent='追い切りの保存状態を確認中…';
+  lastKey=key;
+  const external=reference(t);
+  for(const link of links){link.hidden=!external;if(external){link.href=external.url;link.textContent=external.label;}else{link.removeAttribute('href');link.textContent='';}}
+  refresh.disabled=true;status.textContent='追い切りの保存状態を確認中…';
   if(marks)marks.textContent='追い切りの保存状態を確認中…';
   if(!t){body.textContent='レースを選んでください。';refresh.disabled=false;return;}
   try{
