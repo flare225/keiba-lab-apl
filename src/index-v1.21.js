@@ -79,6 +79,7 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
 @media(max-width:600px){.labo-pool-list{grid-template-columns:minmax(0,1fr)}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.markrow{grid-template-columns:64px minmax(0,1fr) 64px;gap:6px}.expected-inline-row{grid-template-columns:minmax(0,1fr) 86px;gap:8px}.row{flex-wrap:wrap}.row>*{min-width:0;max-width:100%}.row .r{max-width:100%;text-align:left}select{max-width:100%}.decision-grid{grid-template-columns:minmax(0,1fr)}.navin .tab{font-size:11px;padding-top:9px;padding-bottom:9px}.navin .tab b{display:block;font-size:15px;line-height:1.1}}
 .labo-comparison-title{font-weight:800;font-size:16px;margin:8px 0}.precard-race-meta{font-size:13px}.precard-explain,.precard-guard{font-size:13px}
 .bet-type-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:10px;min-width:0}.bet-type-grid legend{font-weight:800;padding:0 6px}.bet-type-grid label{display:flex;gap:8px;align-items:center;padding:7px 5px}.bet-type-grid input{min-height:auto;width:19px;height:19px}.bet-rows{display:grid;gap:10px;margin-top:10px}.bet-row{border:1px solid var(--line);border-radius:12px;padding:11px;background:var(--soft)}.bet-row h4{margin:0 0 6px}.bet-label{display:inline-block;margin-bottom:4px;padding:2px 7px;border-radius:999px;background:var(--accent);color:#071018;font-size:11px;font-weight:800}.bet-combos{font-size:13px;color:var(--text);line-height:1.7}.bet-amount{margin-top:7px;font-weight:800;color:var(--accent)}
+.tb-export{width:100%;min-height:140px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text);line-height:1.55;font-size:14px;resize:vertical}.tb-export[hidden]{display:none!important}
 .tb-matrix{width:100%;display:grid;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .tb-matrix-row{display:grid;align-items:center;gap:5px;padding:7px 8px;border-bottom:1px solid var(--line);min-width:0}
 .tb-matrix-row:last-child{border-bottom:0}
@@ -274,18 +275,25 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
   }catch(e){if(n===generation)out.textContent='仮比較を保留：'+e.message;}
   finally{running=false;if(queued){queued=false;schedule();}}
  }
+ let officialAuditBusy=false;
  async function auditOfficialInline(){
+ if(officialAuditBusy)return;
  const t=window.getLaboTarget?.(),phase=phaseInput.value,track=trackInput.value,human=marks(),k=key(t);
  if(!t||!rosterVerified){out.textContent='JRA番号付き出馬表の照合待ちです。初期印だけ準備できます。';return;}
  if(!human.length){out.textContent='出馬表の馬名の横で印を付けてください。';return;}
  if(phase==='final'&&!track){out.textContent='最終印のDB再精査には馬場想定を指定してください。';return;}
- out.textContent='JRA出馬表とDBの印監査を確認中…';
+ officialAuditBusy=true;
+ const action=document.querySelector('#marks button[onclick="auditMarks()"]');
+ const oldLabel=action?.textContent;
+ if(action){action.disabled=true;action.textContent='DB照合中…';}
+ out.textContent='JRA出馬表とDBの印監査を確認中…（保存済み評価の読み込みには時間がかかることがあります）';
  try{
   const body={date:t.date,venue:t.venue,raceNo:Number(t.raceNo),phase,marks:human};if(track)body.track=track;
   const response=await fetch(auditApi+'/v1/lab/user-mark-audit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),d=await response.json();
   if(k!==key(window.getLaboTarget?.())||phase!==phaseInput.value||JSON.stringify(human)!==JSON.stringify(marks()))return;
   publishAuditCards(d,{inline:true});
- }catch(e){if(k===key(window.getLaboTarget?.())&&phase===phaseInput.value){const message='印のDB監査に接続できませんでした。出馬表の保存状態とは別の通信エラーです。接続を確認し、少し待って再精査してください。';publishAuditCards({ok:false,error:message,race:{raceName:t.raceName},phase},{inline:true});}}
+ }catch(e){if(k===key(window.getLaboTarget?.())&&phase===phaseInput.value&&JSON.stringify(human)===JSON.stringify(marks())){const message='印のDB監査に接続できませんでした。出馬表の保存状態とは別の通信エラーです。接続を確認し、少し待って再精査してください。';publishAuditCards({ok:false,error:message,race:{raceName:t.raceName},phase},{inline:true});}}
+ finally{officialAuditBusy=false;if(action){action.disabled=false;action.textContent=oldLabel;}}
 }
  function schedule(){
   syncDraftContext();showMode();saveInline();saveDraft();showDraft();inputNames();generation++;clearTimeout(timer);
@@ -347,7 +355,7 @@ export default{async fetch(request,env,ctx){
   <div class="tb-fields"><label>合計予算（円）<input id="ticketBudget" type="number" min="100" step="100" inputmode="numeric" value="3000"></label></div>
   <div class="tb-summary" id="ticketSlipSummary">0点 · 0円</div>
   <div id="ticketSlipItems"></div>
-  <div class="tb-actions"><button class="btn" id="ticketCopy" type="button" disabled>買い目をコピー</button><button class="btn secondary" id="ticketClearSlip" type="button" disabled>リストを空にする</button></div>
+  <div class="tb-actions"><button class="btn" id="ticketCopy" type="button" disabled>買い目をコピー</button><button class="btn secondary" id="ticketClearSlip" type="button" disabled>リストを空にする</button></div><textarea id="ticketExportText" hidden readonly rows="8" class="tb-export" aria-label="手動でコピーする買い目"></textarea>
   <p class="tb-note">購入前の検討・記録用です。馬券購入や即PAT／IPAT連携は行いません。単勝オッズ・払戻金は計算に含めません。</p>
  </div>
 </section>`;
