@@ -68,3 +68,19 @@ jobs:
           html="$(curl -fsS --max-time 10 "$PRODUCTION_URL/")"
           grep -q '/v1/lab/deploy-check' <<<"$html"
           grep -q '本番API接続 OK' <<<"$html"
+
+      - name: Diagnose Saudi and Ireland race data (read-only)
+        shell: bash
+        continue-on-error: true
+        env:
+          LAB_API: https://keiba-lab-api.sekai-no-bancyou.workers.dev
+        run: |
+          for race_date in 2026-10-10 2026-10-11; do
+            echo "Race status check: $race_date Tokyo 11R"
+            ops="$(curl -sSG --max-time 15 "$LAB_API/v1/lab/race-ops" --data-urlencode "date=$race_date" --data-urlencode "venue=東京" --data-urlencode "race_no=11" || echo '{}')"
+            card="$(curl -sSG --max-time 15 "$LAB_API/api/jra/runners" --data-urlencode "race_key=$race_date:東京:11" || echo '{}')"
+            expect="$(curl -sSG --max-time 15 "$LAB_API/v1/lab/expected-runners" --data-urlencode "date=$race_date" --data-urlencode "venue=東京" --data-urlencode "race_no=11" || echo '{}')"
+            printf '%s\n' "$ops" | jq -c '{ok, officialComplete: .ops.cardComplete, nextAction: .ops.nextAction, error}' || true
+            printf '%s\n' "$card" | jq -c '{ok, officialRows: .count, error}' || true
+            printf '%s\n' "$expect" | jq -c '{ok, expectedRows: (.runners|length), error}' || true
+          done
