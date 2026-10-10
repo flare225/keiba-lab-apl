@@ -59,7 +59,7 @@ test('browser displays local receipt, remote history, and authentication pending
  assert.ok(html.includes("markSaveCard.id='userMarkSaveCard'"));
  for(const id of ['userMarkDbState','userMarkDraftState','userMarkLocalState','userMarkSaveLocal','userMarkSaveCopy','userMarkRefreshDb'])assert.match(html,new RegExp('id="'+id+'"'));
  assert.doesNotMatch(html,/id="userMarkWriteKey"|id="userMarkSaveDb"/);
- assert.match(html,/管理者用秘密キーの入力は不要です/);
+ assert.match(html,/管理者用秘密キーをブラウザへ入力しないでください/);
  assert.match(html,/自動下書き（この端末）、日時付きの端末控え、正式DBの保存は3つとも別/);
  assert.match(html,/保存日時がレース後なら事後記録/);
  assert.match(html,/DB保存・レース前LOCKを証明するものではありません/);
@@ -86,4 +86,13 @@ test('saved local draft verifies same picks rather than claiming an old draft is
  assert.equal(draftMarkMatch({marks:{馬A:'▲',馬B:'○'}},current),false);
  assert.equal(draftMarkMatch({marks:[{horse:'馬A',mark:'◎'},{horse:'馬B',mark:'○'}]},current),true);
  assert.equal(draftMarkMatch({marks:[{horse:'馬A',mark:'◎'},{horse:'馬B',mark:'▲'}]},current),false);
+});
+
+test('initial DB revision matches names/marks even when official horse numbers were assigned later',()=>{
+ const initial=initialLocalMarkPayload(target,{...state,phase:'initial',track:'',marks:state.marks});
+ const recorded={phase:'initial',revisionNo:1,trackCondition:null,entries:[
+  {horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]};
+ assert.equal(sameDbMarks(initial,recorded),true);
+ assert.equal(sameDbMarks(initial,{...recorded,entries:[
+  {horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'▲'}]}),false);
 });
