@@ -1,6 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/v116" }
+    {
+      "source": "/v1/lab/user-mark-audit",
+      "destination": "/api/lab-audit"
+    },
+    {
+      "source": "/v1/lab/mark-comparison",
+      "destination": "/api/lab-comparison"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/api/v116"
+    }
   ]
 }
