@@ -44,6 +44,8 @@ test('browser includes linked race/marks workout readout and updater with all sc
  assert.match(html,/\/v1\/lab\/workouts/);
  assert.match(html,/追い切り・調教タイム/);
  assert.match(html,/追い切りAPI公開待ち/);
+ assert.match(html,/追い切りDBの保存形式を確認中/);
+ assert.doesNotMatch(html,/取得状態を確認できません（'\+String\(e\.message/);
  for(const [,script] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(script);
  assert.equal((await(await app.fetch(new Request('https://test.example/health'))).json()).version,VERSION);
 });
