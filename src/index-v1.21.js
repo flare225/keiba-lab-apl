@@ -5,7 +5,9 @@ import {mountTicketBuilder} from './ticket-builder-client-v1.22.js';
 import {renderTicketSelectionMatrix} from './ticket-selection-matrix.js';
 import {renderWorkoutEvidence,mountWorkoutEvidence,netkeibaWorkoutReference} from './workout-evidence-ui.js';
 import {WORKOUT_IMPRESSIONS,getOfficialWorkoutRoster,workoutImpressionSummary,mountWorkoutImpressions} from './workout-impression-v1.23.js';
-export const VERSION='1.23.6';
+import {USER_MARKS,TRACK_CONDITIONS,verifiedMarkPayload,sameDbMarks,summarizeDbRevision,localMarkReceipt} from './mark-save-state-v1.24.js';
+import {mountMarkSaving} from './mark-save-client-v1.24.js';
+export const VERSION='1.24.0';
 export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={}){
  const input=Number(budget),yen=Number.isFinite(input)&&input>=100?Math.floor(input/100)*100:0,clean=(Array.isArray(marks)?marks:[]).filter(x=>x&&(x.horseName||Number.isInteger(x.horseNo))&&['◎','○','▲','△','☆','注'].includes(x.mark)).slice(0,18).map(x=>({...x,horseName:(Number.isInteger(x.frameNo)?x.frameNo+'枠 ':'')+(Number.isInteger(x.horseNo)?x.horseNo+'番 ':'')+(x.horseName||'')})),by=m=>clean.filter(x=>x.mark===m).map(x=>x.horseName);
  const main=[...by('◎'),...by('○'),...by('▲')].slice(0,6),insurance=[...by('△'),...by('☆'),...by('注')].slice(0,6),items=[],enabled=new Set(Array.isArray(types)?types:['馬連','ワイド','三連複','三連単']);
@@ -100,6 +102,16 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
 .tb-matrix-pick:disabled{opacity:.45;cursor:not-allowed}
 .tb-matrix-pick:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .tb-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center}.tb-head h2{margin:0;font-size:19px}.tb-status{font-size:12px;padding:8px 10px;margin:10px 0;color:var(--muted);border:1px solid var(--line);border-radius:10px}.tb-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}.tb-fields label{display:grid;gap:4px;min-width:0;font-size:13px}.tb-fields input,.tb-fields select{width:100%;min-width:0}.tb-options{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}.tb-options label{display:flex;align-items:center;gap:7px;font-size:13px}.tb-options input{min-height:auto;width:19px;height:19px}.tb-options [hidden]{display:none!important}.tb-groups{display:grid;gap:12px}.tb-group{padding:12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;min-width:0}.tb-group h4{margin:0 0 10px}.tb-group h4 small{color:var(--muted)}.tb-horses{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:7px}.tb-horse{min-width:0;display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:9px;text-align:left;background:var(--panel);color:var(--text);cursor:pointer}.tb-horse.selected{border-color:var(--accent);background:#183653}.tb-horse:disabled{opacity:.55;cursor:not-allowed}.tb-no{background:#26384a;color:white;min-width:30px;min-height:30px;display:grid;place-items:center;border-radius:7px;font-size:16px;font-weight:850}.tb-horse.selected .tb-no{background:var(--accent);color:#071018}.tb-horse-text{min-width:0;overflow-wrap:anywhere;font-size:13px;font-weight:750}.tb-horse-text small{display:block;color:var(--muted);font-size:11px;font-weight:500}.tb-preview{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:12px;line-height:1.7}.tb-preview b{font-size:21px}.tb-preview strong{font-size:20px;color:var(--accent)}.tb-combos{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}.tb-combos span{display:inline-block;padding:4px 7px;font-size:12px;background:#132738;border:1px solid #294156;border-radius:7px}.tb-summary{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0}.tb-summary strong{font-size:20px}.tb-summary.over{border-color:#bb5c4f;color:var(--bad)}.tb-slip-card{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}.tb-slip-top{display:flex;justify-content:space-between;align-items:center;gap:10px}.tb-slip-money{font-size:13px;margin:8px 0}.tb-slip-money label{white-space:nowrap}.tb-slip-money input{width:84px;min-height:36px;padding:6px}.tb-slip-card summary{cursor:pointer}.tb-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.tb-note{font-size:13px;line-height:1.7;color:var(--muted)}@media(max-width:600px){.tb-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.tb-horses{grid-template-columns:repeat(2,minmax(0,1fr))}.tb-horse{padding:7px;gap:5px}.tb-no{min-width:27px}.tb-horse-text{font-size:12px}.tb-fields input,.tb-fields select{font-size:16px}}
+.user-mark-save{border:1px solid var(--line);border-radius:14px;padding:13px;margin:12px 0;background:var(--panel2)}
+.user-mark-save h3{font-size:17px;margin:0 0 8px}
+.user-mark-save p{line-height:1.7;font-size:13px;margin:8px 0;overflow-wrap:anywhere}
+.user-mark-save .mark-status{padding:9px;margin:8px 0;border:1px solid var(--line);border-radius:9px;background:var(--panel)}
+.user-mark-save .mark-save-controls{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.user-mark-save summary{font-size:14px;font-weight:750;cursor:pointer;min-height:40px;padding:10px 0}
+.user-mark-save label{display:grid;gap:7px;font-size:13px}
+.user-mark-save input{width:100%;font-size:16px}
+.user-mark-save textarea{width:100%;min-height:130px;resize:vertical}
+.user-mark-save textarea[hidden],.user-mark-save[hidden]{display:none!important}
 .workout-impression-card{border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0}.workout-impression-card h3{margin:0 0 8px;font-size:16px}
 .workout-impression-row{border-top:1px solid var(--line);display:grid;gap:8px;padding:10px 0}
 .workout-impression-horse{font-size:13px;overflow-wrap:anywhere}
@@ -185,6 +197,13 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
  const getOfficialWorkoutRoster=${getOfficialWorkoutRoster.toString()};
  const workoutImpressionSummary=${workoutImpressionSummary.toString()};
  const mountWorkoutImpressions=${mountWorkoutImpressions.toString()};
+ const USER_MARKS=${JSON.stringify(USER_MARKS)};
+ const TRACK_CONDITIONS=${JSON.stringify(TRACK_CONDITIONS)};
+ const verifiedMarkPayload=${verifiedMarkPayload.toString()};
+ const sameDbMarks=${sameDbMarks.toString()};
+ const summarizeDbRevision=${summarizeDbRevision.toString()};
+ const localMarkReceipt=${localMarkReceipt.toString()};
+ const mountMarkSaving=${mountMarkSaving.toString()};
  const homeRaceSummary=${homeRaceSummary.toString()},homeRaceState=${homeRaceState.toString()};let homeRaceSequence=0;
  async function refreshHomeRace(){const seq=++homeRaceSequence,t=window.getLaboTarget?.(),title=document.getElementById('homeRaceTitle'),missing=document.getElementById('homeRaceMissing'),next=document.getElementById('homeRaceNext'),button=document.getElementById('homeRaceAction');if(!title)return;button.disabled=true;missing.textContent='保存状態を確認中…';next.textContent='';if(!t){title.textContent='対象レースを確認中';return;}title.textContent=t.date+' '+t.venue+t.raceNo+'R '+(t.raceName||'');try{const track=document.getElementById('track')?.value||'',r=await fetch(api+'/v1/lab/race-ops?date='+encodeURIComponent(t.date)+'&venue='+encodeURIComponent(t.venue)+'&race_no='+t.raceNo+(track?'&track='+encodeURIComponent(track):'')),d=await r.json();if(seq!==homeRaceSequence)return;const summary=homeRaceSummary(homeRaceState(r.status,d));missing.textContent=summary.missing.length?summary.missing.join(' / '):'現在の保存状態では不足・未完了なし';next.textContent=summary.next;button.textContent=summary.phase==='initial'?'枠順前の比較へ':d.ok?'次の操作へ':'対象レースで再確認';button.dataset.homePhase=summary.phase||'';button.dataset.homeView=summary.view;button.disabled=false;}catch{if(seq===homeRaceSequence){missing.textContent='保存状態を確認できません';next.textContent='対象レースで再確認してください';button.dataset.homeView='race';button.disabled=false;}}}
  window.addEventListener('labo-target-change',refreshHomeRace);refreshHomeRace();
@@ -236,6 +255,20 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  const manualRows=document.getElementById('markRows'),markCard=manualRows.parentElement,rosterBox=document.createElement('div');rosterBox.id='expectedInlineRoster';manualRows.before(rosterBox);
  let roster=[],rosterNumbers={},rosterVerified=false,rosterKey='',rosterSnapshot='',rosterSequence=0,historyStatusSequence=0;
  const phaseInput=document.getElementById('phase'),trackInput=document.getElementById('markTrack');
+ const markSaveCard=document.createElement('div');markSaveCard.id='userMarkSaveCard';markSaveCard.className='user-mark-save';markSaveCard.hidden=true;
+ markSaveCard.innerHTML='<h3>印の保存状態・確定記録</h3>'+
+ '<p>「DBで再精査」は照合のみ。端末内の控えと、認証付きの正式DB保存は別です。保存日時がレース後なら事後記録です。</p>'+
+ '<div id="userMarkDbState" class="mark-status" role="status">DB保存状態を確認中…</div>'+
+ '<div id="userMarkLocalState" class="mark-status">端末控え：なし</div>'+
+ '<div class="mark-save-controls"><button type="button" class="btn secondary" id="userMarkSaveLocal">端末に印の控えを記録</button>'+
+ '<button type="button" class="btn secondary" id="userMarkRefreshDb">DB保存状態を確認</button><button type="button" class="btn secondary" id="userMarkSaveCopy">印の控えをコピー</button></div>'+
+ '<details><summary>正式DBへ保存する（管理用保存キーが必要）</summary>'+
+ '<p>管理キーはこの送信にだけ使い、端末には保存しません。キーが未設定ならDB保存はできません。</p>'+
+ '<label for="userMarkWriteKey">管理用保存キー<input type="password" id="userMarkWriteKey" autocomplete="off" spellcheck="false" placeholder="管理用保存キーを入力"></label>'+
+ '<div class="mark-save-controls"><button type="button" class="btn" id="userMarkSaveDb">正式DBへ保存して照合</button></div></details>'+
+ '<textarea id="userMarkSaveExport" hidden readonly rows="8" aria-label="印の控えを手動コピー"></textarea>'+
+ '<p id="userMarkSaveInfo" role="status">正式出馬表と印の確認待ちです。</p>';
+ manualRows.before(markSaveCard);
  const auditReport=document.getElementById('laboAuditReport');
  function publishAuditCards(data,{inline=false}={}){
    const raceName=window.getLaboTarget?.()?.raceName||'対象レース';
@@ -350,12 +383,13 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  const renderTicketSelectionMatrix=${renderTicketSelectionMatrix.toString()};
  mountTicketBuilder({document,window,api,getRace:()=>window.getLaboTarget?.(),getMarks:()=>marks(),verifyRoster:verifiedOfficialRoster,WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip,renderTicketSelectionMatrix});
  window.addEventListener('labo-target-change',targetChanged);targetChanged();
+ mountMarkSaving({document,window,getCurrent:()=>({target:window.getLaboTarget?.(),state:{phase:phaseInput.value,track:trackInput.value,marks:marks(),rosterVerified,roster,rosterNumbers,rosterSnapshot}}),verifiedMarkPayload,sameDbMarks,summarizeDbRevision,localMarkReceipt});
  mountWorkoutEvidence({document,window,api,render:renderWorkoutEvidence,reference:netkeibaWorkoutReference});
  mountWorkoutImpressions({document,window,api,getRoster:getOfficialWorkoutRoster});
 })();
 </script>`;
 export default{async fetch(request,env,ctx){
- if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view','verified-jra-roster-number-overlay','budget-safe-allocation','formation-ticket-builder-8-types','readable-mark-audit-cards','same-origin-mark-audit-proxy','six-tab-mobile-nav','single-roster-bet-matrix','manual-official-audit','workout-provenance-status','netkeiba-workout-reference-links','one-tap-workout-impressions','fixed-six-sibling-mobile-nav','saudi-rc-selectable','official-marks-inline-all-phases']},{headers:{'cache-control':'no-store'}});
+ if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view','verified-jra-roster-number-overlay','budget-safe-allocation','formation-ticket-builder-8-types','readable-mark-audit-cards','same-origin-mark-audit-proxy','six-tab-mobile-nav','single-roster-bet-matrix','manual-official-audit','workout-provenance-status','netkeiba-workout-reference-links','one-tap-workout-impressions','fixed-six-sibling-mobile-nav','verified-mark-revision-status','authenticated-mark-save','saudi-rc-selectable','official-marks-inline-all-phases']},{headers:{'cache-control':'no-store'}});
  const r=await app.fetch(request,env,ctx);if(!r.ok||!r.headers.get('content-type')?.includes('text/html'))return r;
  let html=await r.text();
  html=html.replace(/<section id="home" class="active">([\s\S]*?)<\/section>/,(_,content)=>'<section id="home" class="active"><div class="section-title">対象レース</div><div class="card"><h2 id="homeRaceTitle" class="section-title">対象レースを確認中</h2><p class="notice"><b>不足・未完了：</b><span id="homeRaceMissing">確認中…</span></p><p><b>次にすること：</b><span id="homeRaceNext"></span></p><button type="button" class="btn" id="homeRaceAction" data-home-view="race" disabled>次の操作へ</button></div><div class="card"><h2 class="section-title">現在は予想の判断補助</h2><p>過去走を使った参考比較ができます。予想精度はまだ検証できていません。</p><details><summary>評価できていない材料</summary><p>脚質・展開への適合と追い切りは参考指数に未反映です。未取得の馬場・通過順などは各馬の不足情報で確認できます。</p></details></div><div class="section-title">今週の重賞を選ぶ</div><div class="card"><div class="controls" id="raceQuickPick"><button type="button" class="btn secondary" data-race-date="2026-10-10">サウジアラビアRC（10/10）</button><button type="button" class="btn secondary" data-race-date="2026-10-11">アイルランドT（10/11）</button></div><p class="notice">レースを切り替えると馬名一覧と印の下書きも切り替わります。公式枠番は保存監査を通った場合のみ正式表示します。</p></div><div class="section-title">比較して予想を組み立てる</div><div class="card"><div class="controls"><button type="button" class="btn" data-home-view="marks">初期印・DB比較</button><button type="button" class="btn secondary" data-home-view="race">対象レース・馬場</button><button type="button" class="btn secondary" data-home-view="history">履歴・回顧</button></div></div><div class="section-title">学習データの蓄積</div><div class="card"><p id="homeLearning" role="status" class="notice">保存済みの学習データを確認中…</p><p id="homeValidation" class="notice">検証状況を確認中…</p><p id="homeCollection" class="notice"></p><p id="homeLearningUpdated" class="expected-inline-note"></p><div class="controls"><button type="button" class="btn secondary" id="refreshHomeLearning">学習状況を更新</button><a href="https://keiba-lab-api.sekai-no-bancyou.workers.dev/lab/work-progress" target="_blank" rel="noopener">補完待ち・詳しい進捗</a></div></div></section><section id="system" aria-labelledby="systemTitle"><div class="controls"><button type="button" class="btn secondary" id="closeSystem">ホームへ戻る</button></div><h2 id="systemTitle" tabindex="-1" class="section-title">システム情報</h2>'+content+'</section>');

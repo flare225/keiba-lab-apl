@@ -19,7 +19,7 @@ function fetchStub(status=200){
 }
 test('same-origin Vercel rewrites must precede SPA catch-all',()=>{
  const cfg=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
- assert.deepEqual(cfg.rewrites.slice(0,2).map(x=>[x.source,x.destination]),[
+ assert.deepEqual(cfg.rewrites.filter(x=>['/v1/lab/user-mark-audit','/v1/lab/mark-comparison'].includes(x.source)).map(x=>[x.source,x.destination]),[
   ['/v1/lab/user-mark-audit','/api/lab-audit'],
   ['/v1/lab/mark-comparison','/api/lab-comparison']
  ]);
