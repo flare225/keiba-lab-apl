@@ -46,7 +46,7 @@ export function mountWorkoutEvidence({document,window,api,render=renderWorkoutEv
    status.textContent=rendered.status;
    body.innerHTML=rendered.detail;
    if(marks)marks.textContent='追い切り：'+rendered.status+'。※参考資料・予想点には未反映。';
-  }catch(e){if(current!==seq)return;const warning='追い切りDBの接続・取得状態を確認できません（'+String(e.message||e)+'）。';
+  }catch(e){if(current!==seq)return;const issue=String(e.message||e);const warning=/D1_ERROR|SQLITE_ERROR|no such column|no such table/i.test(issue)?'追い切りDBの保存形式を確認中です。自動取得や予想点への反映は行っていません。':'追い切りDBに接続できません。時間をおいて再確認してください。';
    status.textContent='取得状態が不明';body.textContent=warning;if(marks)marks.textContent=warning;
   }finally{if(current===seq)refresh.disabled=false;}
  }
