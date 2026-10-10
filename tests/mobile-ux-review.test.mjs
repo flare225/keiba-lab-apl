@@ -61,3 +61,22 @@ test('copy fallback and explicit clear confirmation are present',async()=>{
  assert.match(html,/このレースの買い目をすべて削除しますか/);
  assert.match(html,/renderTicketSelectionMatrix/);
 });
+
+test('navigation is actually six sibling controls, never nested under 監査',async()=>{
+ const html=await(await app.fetch(new Request('https://example.com/'))).text();
+ const start=html.indexOf('<div class="nav"><div class="navin"');
+ const end=html.indexOf('</div></div>',start);
+ assert.ok(start>=0);
+ // The first pair of adjacent closing divs must be the sixth tab + navin.
+ // A nested child would make the first pair belong to that child instead.
+ const subtree=html.slice(start,end+12);
+ const ids=[...subtree.matchAll(/<div class="tab(?: active)?" data-id="([^"]+)"/g)].map(m=>m[1]);
+ assert.deepEqual(ids,['home','race','history','marks','ops','bets']);
+ assert.equal((subtree.match(/class="tab(?: active)?"/g)||[]).length,6);
+ const opsStart=subtree.indexOf('data-id="ops"'),betsStart=subtree.indexOf('data-id="bets"');
+ assert.ok(subtree.indexOf('</div>',opsStart)>opsStart&&subtree.indexOf('</div>',opsStart)<betsStart,'監査 tab must close before the 買い目 tab starts');
+ assert.match(html,/grid-template-columns:repeat\(6,minmax\(0,1fr\)\)!important/);
+ assert.match(html,/updateNavClearance/);
+ assert.match(html,/--labo-nav-height/);
+ assert.doesNotMatch(subtree,/data-id="bets"[\s\S]*data-id="history"/);
+});
