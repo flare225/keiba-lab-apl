@@ -8,7 +8,7 @@ const go=(type,method,groups,multi=false,axisPosition=1)=>generateFormationTicke
 
 test('correct BOX ticket counts across all supported wager types',()=>{
  for(const [type,n,expected] of [
- ['単勝',4,4],['複勝',4,4],['枠連',4,4],['馬連',4,6],
+ ['単勝',4,4],['複勝',4,4],['枠連',4,3],['馬連',4,6],
  ['馬単',4,12],['ワイド',4,6],['三連複',4,4],['三連単',4,24]
  ]){const r=go(type,'box',[[1,2,3,4]]);
   assert.equal(r.ok,true,type);assert.equal(r.count,expected,type);
@@ -38,7 +38,9 @@ test('axis-one ordered nagashi, axis multies and axis-two multi have official co
 });
 
 test('same-frame 枠連 exists for two distinct horses and is deduplicated',()=>{
- assert.deepEqual(go('枠連','box',[[1,2,3]]).combos,[[1,1],[1,2]]);
+ assert.deepEqual(go('枠連','box',[[1,2,3]]).combos,[[1,2]]); // JRA 枠連BOX excludes same-frame pair
+ assert.deepEqual(go('枠連','formation',[[1],[2]]).combos,[[1,1]]); // JRA 枠連 formation includes the same frame if two horses qualify
+ assert.deepEqual(go('枠連','nagashi',[[1],[2,3]]).combos,[[1,1],[1,2]]);
  const invalid=generateFormationTickets({type:'枠連',method:'box',groups:[[1,2]],roster:[{horseNo:1,frameNo:null},{horseNo:2,frameNo:2}]});
  assert.equal(invalid.ok,false);
 });
