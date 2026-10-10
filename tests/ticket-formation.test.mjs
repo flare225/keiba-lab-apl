@@ -8,7 +8,7 @@ const go=(type,method,groups,multi=false,axisPosition=1)=>generateFormationTicke
 
 test('correct BOX ticket counts across all supported wager types',()=>{
  for(const [type,n,expected] of [
- ['単勝',4,4],['複勝',4,4],['枠連',4,6],['馬連',4,6],
+ ['単勝',4,4],['複勝',4,4],['枠連',4,4],['馬連',4,6],
  ['馬単',4,12],['ワイド',4,6],['三連複',4,4],['三連単',4,24]
  ]){const r=go(type,'box',[[1,2,3,4]]);
   assert.equal(r.ok,true,type);assert.equal(r.count,expected,type);
