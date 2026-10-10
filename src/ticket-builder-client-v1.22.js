@@ -1,7 +1,7 @@
 export function mountTicketBuilder({
  document,window,api,getRace,getMarks,verifyRoster,
  WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,
- validateTicketStake,calculateTicketSlip
+ validateTicketStake,calculateTicketSlip,renderTicketSelectionMatrix
 }){
  const $=id=>document.getElementById(id),el=$('ticketGroups');
  if(!el)return;
@@ -68,11 +68,8 @@ export function mountTicketBuilder({
   notice.textContent='現在の印を候補にセットしました。馬番を押して自由に変更できます。';renderGroups();
  }
  function renderGroups(){
-  const labels=groupsForMethod(),marks=chosenMarks(),enabled=ready;
-  el.innerHTML=labels.map((label,index)=>'<div class="tb-group"><h4>'+esc(label)+' <small>'+groups[index].length+'頭</small></h4><div class="tb-horses">'+(runners.length?runners.map(r=>{
-   const selected=groups[index].includes(r.horseNo),mark=marks.get(r.horseNo)||'';
-   return '<button type="button" class="tb-horse'+(selected?' selected':'')+'" data-group="'+index+'" data-no="'+r.horseNo+'" aria-pressed="'+selected+'"'+(!enabled?' disabled':'')+'><span class="tb-no">'+r.horseNo+'</span><span class="tb-horse-text"><small>'+r.frameNo+'枠'+(mark?' · '+esc(mark):'')+'</small>'+esc(r.horseName)+'</span></button>';
-  }).join(''):'<p class="notice">公式出馬表の取得・照合を確認してください。</p>')+'</div></div>').join('');
+  const labels=groupsForMethod(),marks=chosenMarks();
+  el.innerHTML=renderTicketSelectionMatrix({runners,groups,labels,marks,ready});
   renderPreview();
  }
  function config(){return{type:type.value,method:method.value,groups,multi:multi.checked,axisPosition:Number(axisPosition.value||1),roster:runners};}
@@ -131,7 +128,14 @@ export function mountTicketBuilder({
    loadSaved();renderGroups();renderSlip();
   }catch(e){if(seq===requestId){gate.textContent='出馬表を確認できません。再度レースを選択してください。';notice.textContent='取得エラー：'+e.message;renderGroups();}}
  }
- el.addEventListener('click',e=>{const button=e.target.closest?.('button[data-group][data-no]');if(!button||!ready)return;const index=Number(button.dataset.group),number=Number(button.dataset.no),arr=groups[index];if(!arr||!runners.some(x=>x.horseNo===number))return;groups[index]=arr.includes(number)?arr.filter(n=>n!==number):[...arr,number].sort((a,b)=>a-b);renderGroups();});
+ el.addEventListener('click',e=>{const button=e.target.closest?.('button[data-group][data-no]');if(!button||!ready)return;const index=Number(button.dataset.group),number=Number(button.dataset.no),arr=groups[index];if(!arr||!runners.some(x=>x.horseNo===number))return;groups[index]=arr.includes(number)?arr.filter(n=>n!==number):[...arr,number].sort((a,b)=>a-b);
+ const selected=groups[index].includes(number);
+ button.classList.toggle('selected',selected);
+ button.setAttribute('aria-pressed',String(selected));
+ const name=runners.find(x=>x.horseNo===number)?.horseName||'選択馬',group=groupsForMethod()[index]||'組';
+ button.setAttribute('aria-label',name+'：'+group+'を'+(selected?'解除':'選択'));
+ const counter=el.querySelector('[data-group-count="'+index+'"]');if(counter)counter.textContent=groups[index].length+'頭';
+ renderPreview();});
  type.addEventListener('change',()=>{methodOptions();renderGroups();});
  method.addEventListener('change',()=>{groups=[[],[],[]];updateMethodSettings();renderGroups();});
  axisPosition.addEventListener('change',renderPreview);multi.addEventListener('change',renderPreview);
