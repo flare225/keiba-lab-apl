@@ -47,7 +47,7 @@ function harness({configured=true,phase='final',verified=true,existing=false}={}
   throw Error('unexpected route '+url+' '+method);
  }
  const payload=(t,s)=>({date:t.date,venue:t.venue,raceNo:t.raceNo,phase:s.phase,
-  ...(s.track?{track:s.track}:{}),marks:s.marks});
+  ...(s.track?{track:s.track}:{}),marks:s.marks.map(m=>({...m,horseNo:s.rosterNumbers[m.horseName]?.horseNo}))});
  const initial=(t,s)=>({date:t.date,venue:t.venue,raceNo:t.raceNo,phase:'initial',
   marks:s.marks,localOnly:true});
  mountOwnerMarkSave({document:{getElementById:id=>elements.get(id)||null},
