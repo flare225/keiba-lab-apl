@@ -1,9 +1,9 @@
-const escapeHtml=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /** Render one vertical list of official horses, with one selectable column per formation group.
  * Avoid repeating the whole runner card for each group on narrow phone screens.
  * The renderer never invents official frame/horse numbers and never modifies a selection.
  */
 export function renderTicketSelectionMatrix({runners=[],groups=[],labels=[],marks=new Map(),ready=false}={}){
+ const escapeHtml=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const count=labels.length;
  const widths='minmax(0,1fr) repeat('+count+', minmax(40px,52px))';
  if(!count)return'<p class="notice">買い方を選択してください。</p>';
