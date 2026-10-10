@@ -55,3 +55,13 @@ test('HTML exposes LABO-only recheck separately and compiles inline browser Java
  assert.equal(health.version,VERSION);
  assert.ok(health.features.includes('independent-labo-reference-marks'));
 });
+
+test('independent rows must match the official roster and expose overlooked top-ranked runners',()=>{
+ const good=buildIndependentLaboReview(fixture,[{horseName:'馬D',mark:'◎'}],{},['馬A','馬B','馬C','馬D']);
+ assert.equal(good.rows.find(x=>x.name==='馬A').comparison,'LABO上位・自分は無印');
+ assert.throws(()=>buildIndependentLaboReview(fixture,[],{},['馬A','馬B','別馬','馬D']),/JRA正式出馬表/);
+ const thin=structuredClone(fixture);
+ thin.assessment.allRunners[1].assessment.validFinishRows=1;
+ const parsed=buildIndependentLaboReview(thin);
+ assert.match(renderIndependentLaboReview(parsed),/有効着順3走未満/);
+});
