@@ -5,7 +5,8 @@ const alignmentLabels={aligned:'概ね一致',watch:'再確認',conflict:'評価
 const alignmentDescriptions={
  '◎ inside LABO top 3':'◎はLABO上位3位以内','◎ outside LABO top 3':'◎はLABO上位3位の圏外','◎ is LABO rank 7+':'◎はLABO7位以下',
  '○ inside LABO top 4':'○はLABO上位4位以内','○ outside LABO top 4':'○はLABO上位4位の圏外','○ is LABO rank 8+':'○はLABO8位以下',
- 'LABO rank unavailable':'LABO順位の保存データなし'
+ 'LABO rank unavailable':'LABO順位の保存データなし',
+ '消 conflicts with LABO top 4':'消した馬がLABO上位4位に入っています','消 removes LABO top 7':'消した馬がLABO上位7位に入っています','消 outside LABO top 7':'消した馬はLABO8位以下'
 };
 const warningDescriptions={
  'zero-pre-race-history':'過去走データなし','one-pre-race-history':'過去走が1走のみ',
@@ -14,7 +15,7 @@ const warningDescriptions={
 export function describeAuditAlignment(row={}){
  const level=row.alignment?.level||'unscored';
  return {level:alignmentLabels[level]?level:'unscored',label:alignmentLabels[level]||'LABO評価未取得',
-  reason:alignmentDescriptions[row.alignment?.reason]||((level==='unscored')?'保存済みLABO順位を取得できません':(row.alignment?.reason||'印と順位の照合結果'))};
+  reason:alignmentDescriptions[row.alignment?.reason]||(/^([△☆注]) inside LABO top 8$/.test(row.alignment?.reason||'')?row.mark+'はLABO上位8位以内':/^([△☆注]) outside LABO top 8$/.test(row.alignment?.reason||'')?row.mark+'はLABO上位8位の圏外':level==='unscored'?'保存済みLABO順位を取得できません':'印と順位の照合結果')};
 }
 export function summarizeMarkAudit(data={}){
  const audit=data&&typeof data.audit==='object'?data.audit:{};
@@ -41,6 +42,9 @@ export function renderMarkAuditCards(data={},opts={}){
   ?'<div class="audit-readable-stats"><div><small>印を付けた馬</small><b>'+d.marked.length+'頭</b></div><div><small>概ね一致</small><b>'+d.counted.aligned+'頭</b></div><div><small>再確認・食い違い</small><b>'+(d.counted.watch+d.counted.conflict)+'頭</b></div><div><small>LABO評価未取得</small><b>'+d.counted.unscored+'頭</b></div></div>'
   :'<p class="audit-readable-warning">正式出馬表との照合前です。初期印の下書きとしてのみ表示しています。</p>';
  const coverage=d.coverage===null?'':'<p class="audit-readable-meta">統合評価の保存カバー率：'+esc(d.coverage)+'%　'+(d.track?'馬場想定：'+esc(d.track):'馬場想定：未指定')+'</p>';
+ const inputWarnings=Array.isArray(data.inputWarnings)?data.inputWarnings:[];
+ const repeated=inputWarnings.filter(x=>/^multiple-[◎○]-marks$/.test(x));
+ const repeatedNote=repeated.length?'<p class="audit-readable-warning">入力確認：'+repeated.map(x=>esc(x.replace('multiple-',''))+'の印が複数あります').join(' ／ ')+'。印の重複を確認してください。</p>':'';
  const unsaved=d.mode==='official'&&(d.counted.unscored||d.coverage!==null&&d.coverage<100)
   ?'<p class="audit-readable-warning">評価データに未取得があります。未取得は0点として扱わず、印の食い違いも確定判定しません。</p>':'';
  const markRows=d.marked.map(row=>{
@@ -54,5 +58,5 @@ export function renderMarkAuditCards(data={},opts={}){
  }).join('');
  const candidates=d.mode==='official'&&d.candidates.length?'<div class="audit-readable-candidates"><h4>印を付けていないLABO上位候補</h4><p class="audit-readable-meta">未選択馬の参考情報です。買い推奨や的中保証ではありません。</p>'+d.candidates.map(r=>'<div class="audit-readable-candidate"><b>'+esc(r.horseNo??'?')+'番 '+esc(r.horseName||'馬名未取得')+'</b><span>'+((typeof r.laboRank==='number')?'LABO '+esc(r.laboRank)+'位':'順位未取得')+' ／ '+number(r.laboScore)+'点</span></div>').join('')+'</div>':'';
  const readiness=d.mode==='official'&&!d.ready?'<p class="audit-readable-meta">正式な再精査・事前LOCKの準備完了は、この画面では確認できていません。</p>':'';
- return '<div class="audit-readable">'+topline+rankSummary+coverage+unsaved+'<div class="audit-readable-list">'+markRows+'</div>'+candidates+readiness+note+'<div class="audit-readable-actions"><button type="button" class="btn secondary" data-audit-open-bets>買い目構築へ</button></div></div>';
+ return '<div class="audit-readable">'+topline+rankSummary+coverage+repeatedNote+unsaved+'<div class="audit-readable-list">'+markRows+'</div>'+candidates+readiness+note+'<div class="audit-readable-actions"><button type="button" class="btn secondary" data-audit-open-bets>買い目構築へ</button></div></div>';
 }
