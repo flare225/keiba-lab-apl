@@ -45,7 +45,8 @@ test('scoring contract must be independent and all-horse; errors are not represe
 });
 test('HTML exposes LABO-only recheck separately and compiles inline browser JavaScript',async()=>{
  const html=await(await app.fetch(new Request('https://example.org/'))).text();
- for(const id of ['independentLaboReview','independentLaboReviewRefresh','independentLaboReviewStatus','independentLaboReviewContent'])assert.match(html,new RegExp('id=["\\\\]+'+id+'["\\\\]+'));
+ assert.match(html,/laboIndependentCard\.id='independentLaboReview'/);
+ for(const id of ['independentLaboReviewRefresh','independentLaboReviewStatus','independentLaboReviewContent'])assert.ok(html.includes('id="'+id+'"'));
  assert.match(html,/LABO自身の再精査・予想印/);
  assert.match(html,/labo-roster-ready/);
  assert.match(html,/humanMarksUsedInScore/);
