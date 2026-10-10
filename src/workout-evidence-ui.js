@@ -27,6 +27,7 @@ export function mountWorkoutEvidence({document,window,api,render=renderWorkoutEv
   try{
    const params=new URLSearchParams({date:t.date,venue:t.venue,race_no:String(t.raceNo)});
    const response=await fetch(api+'/v1/lab/workouts?'+params.toString());
+   if(response.status===404){if(current!==seq)return;const pending='追い切り取得APIの本番公開待ちです。現時点では追い切り時計を確認できません。';status.textContent='追い切りAPI公開待ち';body.textContent=pending;if(marks)marks.textContent=pending;return;}
    const data=await response.json();
    if(current!==seq)return;
    if(!response.ok)throw Error(data.error||'追い切りデータを読み取れません');
