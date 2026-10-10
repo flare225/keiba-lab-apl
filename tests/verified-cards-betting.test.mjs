@@ -54,3 +54,10 @@ test('only complete officially verified JRA numbered cards can be shown as verif
  assert.equal(verifiedOfficialRoster(rows.map(x=>({...x,frame_no:null})),good),null);
  assert.equal(verifiedOfficialRoster(rows.map(x=>({...x,horse_name:'A'})),good),null);
 });
+
+test('unchecking every wager type must never create default wagers',()=>{
+ const unselected=buildBudgetBets({budget:5000,marks,types:[]});
+ assert.equal(unselected.ok,false);
+ assert.equal(unselected.total,0);
+ assert.deepEqual(unselected.items,[]);
+});
