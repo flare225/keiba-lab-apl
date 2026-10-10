@@ -27,7 +27,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   try{
    const resp=await fetcher('/v1/lab/user-mark-session',{credentials:'same-origin',cache:'no-store'});
    const d=await resp.json();if(!resp.ok||!d.ok)throw Error(d.error||'認証状態を確認できません。');
-   configured=d.configured===true;authenticated=d.authenticated===true;update();
+   configured=d.configured===true;authenticated=d.authenticated===true;update();if(authenticated)queue();
    msg(!configured?'DB正式保存：認証・サーバー接続設定が未完了。現在は端末内保存のみです。':
     authenticated?'DB正式保存：本人認証済み。現在の印は未照合です。再照合に成功した場合のみ保存済みと表示します。':
     'DB正式保存：本人認証待ち。管理者キーではなく、登録した本人用パスフレーズを入力してください。');
@@ -48,12 +48,40 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   try{await fetcher('/v1/lab/user-mark-session',{method:'DELETE',credentials:'same-origin'});}catch{}
   authenticated=false;lastSaved='';msg('ログアウトしました。DB正式保存は停止中です。');
  });
+ const matchesRemote=(rev,body)=>{
+  if(!rev||rev.phase!==body.phase||!Number.isInteger(rev.revisionNo)||rev.revisionNo<1)return false;
+  if(body.track&&rev.trackCondition!==body.track)return false;
+  if(body.phase!=='initial'&&(rev.trackCondition||'')!==(body.track||''))return false;
+  const entries=rev.entries;
+  if(!Array.isArray(entries)||entries.length!==body.marks.length)return false;
+  const choices=new Map(body.marks.map(m=>[m.horseName,m])),seen=new Set();
+  return entries.every(e=>{
+   const name=e.horse_name??e.horseName,m=choices.get(name),no=e.horse_no??e.horseNo;
+   if(!m||seen.has(name)||e.mark!==m.mark)return false;
+   seen.add(name);
+   return body.phase==='initial'||Number(no)===m.horseNo;
+  });
+ };
  async function persist(force=false){
   const c=current();if(!authenticated||!c||working)return;
   let body;try{body={...payload(c),confirm:'SAVE'};}catch(e){if(force)msg('DBへ保存できません：'+e.message);return;}
   const snapshot=key(c);if(!force&&snapshot===lastSaved)return;
   working=true;update();msg('DBへ保存中…（正式DBの再照合が終わるまで確定ではありません）');
   try{
+   // Immutable revisions must not grow when the same draft is reopened, re-logged in or restored.
+   const qs=new URLSearchParams({date:body.date,venue:body.venue,race_no:String(body.raceNo),phase:body.phase});
+   const priorResp=await fetcher('/v1/lab/user-marks?'+qs,{credentials:'same-origin',cache:'no-store'});
+   const prior=await priorResp.json();
+   if(!priorResp.ok||!prior.ok||!Array.isArray(prior.latest))throw Error(prior.error||'既存DB保存履歴を確認できません。');
+   if(prior.raceKey&&prior.raceKey!==body.date+':'+body.venue+':'+body.raceNo)throw Error('別レースの履歴が返されました。');
+   if(key(current()||c)!==snapshot)return;
+   const existing=prior.latest.find(x=>x.phase===body.phase);
+   if(matchesRemote(existing,body)){
+    lastSaved=snapshot;
+    msg('DB保存済み・既存履歴と一致：改訂 '+existing.revisionNo+'版（'+existing.entries.length+'頭）／DB保存日時 '+(existing.createdAt||'未取得')+'。新しい改訂は追加していません。');
+    window.dispatchEvent(new Event('labo-mark-db-written'));
+    return;
+   }
    const r=await fetcher('/v1/lab/user-marks/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
    const d=await r.json();if(!r.ok||!d.ok||d.stage!=='db-written-readback-verified')throw Error(d.error||'保存を確認できません。');
    lastSaved=snapshot;
@@ -73,7 +101,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  save.addEventListener('click',()=>{if(timer!==null)clearTimeout(timer);timer=null;void persist(true);});
  window.addEventListener('labo-marks-changed',()=>{const c=current();if(authenticated&&c&&key(c)!==lastSaved)msg('DB未保存：現在の印は変更されています。自動保存とDB再照合を待っています。');queue();});
  window.addEventListener('labo-target-change',()=>{if(timer!==null)clearTimeout(timer);timer=null;lastSaved='';msg('対象レースを切り替えました。現在の印は正式DB保存未確認です。');if(authenticated)queue();});
- window.addEventListener('labo-roster-ready',update);
+ window.addEventListener('labo-roster-ready',()=>{update();if(authenticated)queue();});
  restore.addEventListener('click',async()=>{
   const c=current();if(!authenticated||working||!c)return;
   if(!window.confirm('現在の画面の印を、正式DBに保存された印で置き換えます。よろしいですか？'))return;
