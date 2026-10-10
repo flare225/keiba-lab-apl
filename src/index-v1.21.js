@@ -1,5 +1,5 @@
 import app from './index-v1.19.js';
-export const VERSION='1.21.23';
+export const VERSION='1.21.24';
 export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={}){
  const input=Number(budget),yen=Number.isFinite(input)&&input>=100?Math.floor(input/100)*100:0,clean=(Array.isArray(marks)?marks:[]).filter(x=>x&&(x.horseName||Number.isInteger(x.horseNo))&&['◎','○','▲','△','☆','注'].includes(x.mark)).slice(0,18).map(x=>({...x,horseName:(Number.isInteger(x.frameNo)?x.frameNo+'枠 ':'')+(Number.isInteger(x.horseNo)?x.horseNo+'番 ':'')+(x.horseName||'')})),by=m=>clean.filter(x=>x.mark===m).map(x=>x.horseName);
  const main=[...by('◎'),...by('○'),...by('▲')].slice(0,6),insurance=[...by('△'),...by('☆'),...by('注')].slice(0,6),items=[],enabled=new Set(Array.isArray(types)&&types.length?types:['馬連','ワイド','三連複','三連単']);
@@ -13,7 +13,7 @@ export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={
  if(main.length>=2&&enabled.has('ワイド'))items.push({category:'保険',type:'ワイド',tickets:main.length===2?1:pairs(main.slice(0,3)).length,combos:main.length===2?[main]:pairs(main.slice(0,3))});
  if(main.length>=3&&enabled.has('三連複'))items.push({category:'勝負',type:'三連複フォーメーション',tickets:1,combos:[[main[0],main[1],main[2]]]});
  if(main.length>=3&&enabled.has('三連単')){const combos=[];for(const a of main)for(const b of main)for(const c of main)if(a!==b&&a!==c&&b!==c)combos.push([a,b,c]);items.push({category:'勝負',type:'三連単ボックス',tickets:combos.length,combos});}
- if(insurance.length&&main.length)items.push({category:'保険',type:'ワイド補完',tickets:Math.min(3,insurance.length),combos:insurance.slice(0,3).map(x=>[main[0],x])});
+ if(insurance.length&&main.length&&enabled.has('ワイド'))items.push({category:'保険',type:'ワイド補完',tickets:Math.min(3,insurance.length),combos:insurance.slice(0,3).map(x=>[main[0],x])});
  if(enabled.has('三連単')&&main.length>=2&&insurance.length){const trio=[main[0],main[1],insurance[0]],multi=[];for(const x of trio)for(const y of trio)for(const z of trio)if(x!==y&&x!==z&&y!==z)multi.push([x,y,z]);items.push({category:'保険',type:'三連単（◎○軸・保険マルチ）',tickets:multi.length,combos:multi});}
  const selected=mode==='safe'?items.filter(x=>x.category==='保険'):mode==='win'?items.filter(x=>x.category==='勝負'):items;
  if(!yen||!selected.length)return{ok:false,budget:yen,items:[],total:0,remaining:yen,message:!yen?'100円単位の予算を入力してください。':'印が足りません。◎○▲を2頭以上指定してください。'};
