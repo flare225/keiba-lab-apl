@@ -42,6 +42,12 @@ export function renderMarkAuditCards(data={},opts={}){
   ?'<div class="audit-readable-stats"><div><small>印を付けた馬</small><b>'+d.marked.length+'頭</b></div><div><small>概ね一致</small><b>'+d.counted.aligned+'頭</b></div><div><small>再確認・食い違い</small><b>'+(d.counted.watch+d.counted.conflict)+'頭</b></div><div><small>LABO評価未取得</small><b>'+d.counted.unscored+'頭</b></div></div>'
   :'<p class="audit-readable-warning">正式出馬表との照合前です。初期印の下書きとしてのみ表示しています。</p>';
  const coverage=d.coverage===null?'':'<p class="audit-readable-meta">統合評価の保存カバー率：'+esc(d.coverage)+'%　'+(d.track?'馬場想定：'+esc(d.track):'馬場想定：未指定')+'</p>';
+ const missingIntegrated=d.mode==='official'&&d.coverage===0
+  ?'<div class="audit-readable-warning" role="status"><strong>LABO統合順位：未作成</strong><p>このレース・馬場条件で、最終印が参照する統合評価スナップショットがDBにありません（保存済み0%）。印や出馬表の未保存が直接の原因ではありません。印を付け直しても順位は出ません。</p><p>学習実験の事前固定予想は別データです。ここへ自動反映した順位ではありません。未取得を0点や最下位として扱わず、統合評価の作成・保存と照合が必要です。</p></div>'
+  :'';
+ const incompleteIntegrated=d.mode==='official'&&d.coverage!==null&&d.coverage>0&&d.coverage<100
+  ?'<p class="audit-readable-warning">この馬場条件で統合評価が保存されていない馬がいます。順位は取得済みの馬だけの暫定比較で、全馬の確定順位ではありません。</p>'
+  :'';
  const inputWarnings=Array.isArray(data.inputWarnings)?data.inputWarnings:[];
  const repeated=inputWarnings.filter(x=>/^multiple-[◎○]-marks$/.test(x));
  const repeatedNote=repeated.length?'<p class="audit-readable-warning">入力確認：'+repeated.map(x=>esc(x.replace('multiple-',''))+'の印が複数あります').join(' ／ ')+'。印の重複を確認してください。</p>':'';
@@ -58,5 +64,5 @@ export function renderMarkAuditCards(data={},opts={}){
  }).join('');
  const candidates=d.mode==='official'&&d.candidates.length?'<div class="audit-readable-candidates"><h4>印を付けていないLABO上位候補</h4><p class="audit-readable-meta">未選択馬の参考情報です。買い推奨や的中保証ではありません。</p>'+d.candidates.map(r=>'<div class="audit-readable-candidate"><b>'+esc(r.horseNo??'?')+'番 '+esc(r.horseName||'馬名未取得')+'</b><span>'+((typeof r.laboRank==='number')?'LABO '+esc(r.laboRank)+'位':'順位未取得')+' ／ '+number(r.laboScore)+'点</span></div>').join('')+'</div>':'';
  const readiness=d.mode==='official'&&!d.ready?'<p class="audit-readable-meta">正式な再精査・事前LOCKの準備完了は、この画面では確認できていません。</p>':'';
- return '<div class="audit-readable">'+topline+rankSummary+coverage+repeatedNote+unsaved+'<div class="audit-readable-list">'+markRows+'</div>'+candidates+readiness+note+'<div class="audit-readable-actions"><button type="button" class="btn secondary" data-audit-open-bets>買い目構築へ</button></div></div>';
+ return '<div class="audit-readable">'+topline+rankSummary+coverage+missingIntegrated+incompleteIntegrated+repeatedNote+unsaved+'<div class="audit-readable-list">'+markRows+'</div>'+candidates+readiness+note+'<div class="audit-readable-actions"><button type="button" class="btn secondary" data-audit-open-bets>買い目構築へ</button></div></div>';
 }
