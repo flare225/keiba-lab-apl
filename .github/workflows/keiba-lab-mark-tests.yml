@@ -19,4 +19,4 @@ jobs:
       - name: Show Node version
         run: node --version
       - name: Validate persistence, readback, independent review and inline scripts
-        run: node --test tests/mark-owner-server.test.mjs tests/mark-owner-client.test.mjs tests/labo-independent-review.test.mjs
+        run: node --test tests/mark-owner-server.test.mjs tests/mark-owner-client.test.mjs tests/labo-independent-review.test.mjs tests/mark-save-verified.test.mjs
