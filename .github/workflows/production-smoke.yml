@@ -73,11 +73,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          body="$(curl -fsS --retry 2 --retry-delay 2 --max-time 20 --get \
+          read_file="$(mktemp)"
+          read_status="$(curl -sS --retry 2 --retry-delay 2 --max-time 20 -o "$read_file" -w '%{http_code}' --get \
             "$PRODUCTION_URL/v1/lab/user-marks" \
             --data-urlencode 'date=2026-10-10' --data-urlencode 'venue=東京' \
-            --data-urlencode 'race_no=11' --data-urlencode 'phase=final')"
-          printf '%s' "$body" | jq -e '.ok == true and .stage == "user-mark-history" and (.latest|type) == "array"' >/dev/null
+            --data-urlencode 'race_no=11' --data-urlencode 'phase=final' || true)"
+          echo "Mark history HTTP $read_status"
+          jq -c '{ok,stage,error,latestCount:(.latest|if type == "array" then length else null end)}' "$read_file" || true
+          test "$read_status" = "200"
+          jq -e '.ok == true and .stage == "user-mark-history" and (.latest|type) == "array"' "$read_file" >/dev/null
           echo 'Verified live final-mark DB history can be checked via same-origin app'
           error_file="$(mktemp)"
           status="$(curl -sS -o "$error_file" -w '%{http_code}' -X POST \
