@@ -108,7 +108,7 @@ export function mountTicketBuilder({
   const d=state();lines.push('合計 '+d.count+'点 / '+d.total+'円','予算 '+d.budget+'円 / 残り '+d.remaining+'円');return lines.join('\n');
  }
  async function refreshRace(){
-  const seq=++requestId,t=currentRace();
+  const seq=++requestId,t=currentRace();const exportBox=$('ticketExportText');if(exportBox){exportBox.hidden=true;exportBox.value='';}
   ready=false;runners=[];entries=[];groups=[[],[],[]];signature='';currentKey=t?t.date+'|'+t.venue+'|'+t.raceNo:'';
   title.textContent=t?t.date+' '+t.venue+t.raceNo+'R '+(t.raceName||''):'レース未選択';
   gate.textContent='公式番号付き出馬表を確認中…';notice.textContent='';renderGroups();renderSlip();
@@ -146,9 +146,10 @@ export function mountTicketBuilder({
  budget.addEventListener('change',()=>{if(!Number.isSafeInteger(Number(budget.value))||Number(budget.value)<100||Number(budget.value)%100){notice.textContent='予算は100円以上の100円単位にしてください。';return;}save();renderSlip();});
  itemsBox.addEventListener('click',e=>{const btn=e.target.closest?.('[data-remove]');if(!btn)return;entries.splice(Number(btn.dataset.remove),1);notice.textContent='買い目を削除しました。';save();renderSlip();});
  itemsBox.addEventListener('change',e=>{const field=e.target.closest?.('input[data-stake]');if(!field)return;const i=Number(field.dataset.stake),stake=validateTicketStake(field.value),before=entries[i];if(!before)return;if(stake===null){notice.textContent='1点100円以上、100円単位にしてください。';renderSlip();return;}const total=state().total-before.unitStake*before.combos.length+stake*before.combos.length;if(total>Number(budget.value)){notice.textContent='予算を超えるため変更を取り消しました。';renderSlip();return;}before.unitStake=stake;save();renderSlip();});
- $('ticketClearSlip').addEventListener('click',()=>{entries=[];notice.textContent='このレースの買い目を空にしました。';save();renderSlip();});
- $('ticketCopy').addEventListener('click',async()=>{if(!entries.length)return;try{await window.navigator.clipboard.writeText(exportText());notice.textContent='買い目と予算をコピーしました。';}catch{notice.textContent='コピーできませんでした。ブラウザのコピー権限を確認してください。';}});
+ $('ticketClearSlip').addEventListener('click',()=>{if(entries.length&&!window.confirm('このレースの買い目をすべて削除しますか？'))return;entries=[];notice.textContent='このレースの買い目を空にしました。';save();renderSlip();});
+ $('ticketCopy').addEventListener('click',async()=>{if(!entries.length)return;const value=exportText(),box=$('ticketExportText');try{await window.navigator.clipboard.writeText(value);if(box)box.hidden=true;notice.textContent='買い目と予算をコピーしました。';}catch{if(box){box.value=value;box.hidden=false;box.focus();box.select();notice.textContent='自動コピーできない環境です。下のテキストを長押ししてコピーしてください。';}else notice.textContent='自動コピーできません。ブラウザの権限を確認してください。';}});
  window.addEventListener('labo-target-change',refreshRace);
- document.addEventListener('click',e=>{if(e.target.closest?.('.tab[data-id="bets"]')&&(!ready||!currentKey))void refreshRace();});
+ document.addEventListener('click',e=>{if(!e.target.closest?.('.tab[data-id="bets"]'))return;if(!ready||!currentKey)void refreshRace();else renderGroups();});
+ window.addEventListener('labo-marks-changed',()=>{if(ready)renderGroups();});
  methodOptions();void refreshRace();
 }
