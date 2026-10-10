@@ -168,7 +168,12 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
  function refreshReturningHome(){if(document.visibilityState!=='hidden'&&Date.now()-learningCheckedAt>=60000)refreshHomeLearning();}
  document.addEventListener('visibilitychange',refreshReturningHome);window.addEventListener('pageshow',refreshReturningHome);
  const openSystem=document.getElementById('openSystem');
- function openView(id){if(id==='home')refreshReturningHome();document.querySelectorAll('section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.id===id));openSystem?.setAttribute('aria-expanded',String(id==='system'));window.scrollTo({top:0,behavior:'instant'});document.getElementById(id)?.querySelector('h2')?.focus({preventScroll:true});}
+ function openView(id){if(id==='home')refreshReturningHome();document.querySelectorAll('section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.tab').forEach(x=>{const selected=x.dataset.id===id;x.classList.toggle('active',selected);x.setAttribute('aria-current',selected?'page':'false');});openSystem?.setAttribute('aria-expanded',String(id==='system'));window.scrollTo({top:0,behavior:'instant'});document.getElementById(id)?.querySelector('h2')?.focus({preventScroll:true});}
+ document.querySelectorAll('.navin .tab').forEach(tab=>{
+  tab.tabIndex=0;tab.setAttribute('role','button');tab.setAttribute('aria-current',tab.classList.contains('active')?'page':'false');
+  tab.addEventListener('click',()=>{document.querySelectorAll('.navin .tab').forEach(x=>x.setAttribute('aria-current',x===tab?'page':'false'));window.scrollTo({top:0,behavior:'instant'});});
+  tab.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();tab.click();}});
+ });
  const betRows=document.getElementById('betRows'),betSummary=document.getElementById('betSummary');
  const betMode=document.getElementById('betMode');if(betMode&&!document.getElementById('betTypes')){const field=document.createElement('fieldset');field.id='betTypes';field.className='bet-type-grid';const legend=document.createElement('legend');legend.textContent='券種（複数選択）';field.append(legend);['単勝','複勝','枠連','馬連','馬単','ワイド','三連複','三連単'].forEach((type,i)=>{const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=type;input.checked=i>=3;label.append(input,document.createTextNode(type));field.append(label);});betMode.parentElement?.append(field);field.addEventListener('change',renderBets);}
  function renderBets(){if(!betRows||!betSummary)return;const t=window.getLaboTarget?.(),rosterMarks=typeof marks==='function'?marks():[],numbered=rosterMarks.map(x=>{const n=rosterNumbers[x.horseName]||{};return rosterVerified&&n.verified?{...x,horseNo:n.horseNo,frameNo:n.frameNo}:x;}),d=buildBudgetBets({budget:document.getElementById('betBudget')?.value,mode:document.getElementById('betMode')?.value,types:[...document.querySelectorAll('#betTypes input:checked')].map(x=>x.value),marks:numbered}),marked=rosterMarks.filter(x=>x.mark&&x.mark!=='消').map(x=>x.mark+' '+(x.horseName||x.horse||x.horseNo)).join(' / ');if(!d.ok){betSummary.innerHTML='<strong>まだ組めません：</strong> '+esc(d.message)+'<br><small>現在の印：'+esc(marked||'未入力')+'</small>';betRows.innerHTML='';return;}betSummary.innerHTML='<strong>買い目を確認：</strong> '+d.total.toLocaleString()+'円 / 予算 '+d.budget.toLocaleString()+'円 / 残り '+d.remaining.toLocaleString()+'円 · 合計 '+d.items.reduce((s,x)=>s+x.tickets,0)+'点'+(d.excluded?.length?' ／ 予算不足で除外：'+d.excluded.map(x=>esc(x.type)+' '+x.tickets+'点').join('、'):'')+'<br><small>対象印：'+esc(marked||'未入力')+'</small>';betRows.innerHTML=d.items.map(x=>'<article class="bet-row"><div class="bet-label">'+x.category+'</div><h4>'+x.type+'</h4><div class="bet-combos">'+x.combos.map(c=>c.map(esc).join(' → ')).join('<br>')+'</div><div class="bet-amount">'+x.tickets+'点 × 1点 '+x.unitStake.toLocaleString()+'円 = '+x.amount.toLocaleString()+'円</div></article>').join('');}
@@ -253,7 +258,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  }
  out.addEventListener('click',e=>{const button=e.target.closest?.('button[data-pool-action]');if(!button||!lastRendered)return;const action=button.dataset.poolAction;if(action==='marked')poolOnlyMarked=!poolOnlyMarked;else poolOrder=action;render(lastRendered.d,lastRendered.human);out.querySelector('[data-pool-action="'+action+'"]')?.focus({preventScroll:true});});
  async function compare(force=false){
-  if(!initial()){if(phaseInlineAvailable(phaseInput.value,rosterVerified,roster.length))await auditOfficialInline();else if(force)await window.auditOfficialMarks?.();return;}
+  if(!initial()){if(!force)return;if(phaseInlineAvailable(phaseInput.value,rosterVerified,roster.length))await auditOfficialInline();else await window.auditOfficialMarks?.();return;}
   const t=window.getLaboTarget?.(),human=marks();if(!t){out.textContent='対象レースを取得中です。';return;}
   if(!human.length){out.textContent='想定表で初期印を選ぶと、自動で仮比較します。';return;}
   if(running){queued=true;return;}
@@ -282,7 +287,16 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
   publishAuditCards(d,{inline:true});
  }catch(e){if(k===key(window.getLaboTarget?.())&&phase===phaseInput.value){const message='印のDB監査に接続できませんでした。出馬表の保存状態とは別の通信エラーです。接続を確認し、少し待って再精査してください。';publishAuditCards({ok:false,error:message,race:{raceName:t.raceName},phase},{inline:true});}}
 }
- function schedule(){syncDraftContext();showMode();saveInline();saveDraft();showDraft();inputNames();generation++;clearTimeout(timer);timer=setTimeout(()=>compare(),450);}
+ function schedule(){
+  syncDraftContext();showMode();saveInline();saveDraft();showDraft();inputNames();generation++;clearTimeout(timer);
+  window.dispatchEvent(new Event('labo-marks-changed'));
+  if(!initial()){
+   out.textContent='印の変更をブラウザに下書き保存しました。正式なDB照合は「DBで再精査」を押したときに実行します。';
+   if(auditReport)auditReport.textContent='印が変更されました。以前の監査結果は最新ではありません。DBで再精査してください。';
+   return;
+  }
+  timer=setTimeout(()=>compare(),650);
+ }
  window.auditMarks=()=>compare(true);refresh.addEventListener('click',()=>compare(true));
  document.getElementById('marks').addEventListener('input',schedule);document.getElementById('marks').addEventListener('change',schedule);
  phaseInput.addEventListener('change',()=>{syncDraftContext();applyInlinePhaseValues();showMode();showDraft();refreshPhaseGate();});
