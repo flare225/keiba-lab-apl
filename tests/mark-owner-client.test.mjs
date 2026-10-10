@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mountOwnerMarkSave} from '../src/mark-owner-client-v1.25.js';
 
-function harness({configured=true,phase='final',verified=true}={}){
+function harness({configured=true,phase='final',verified=true,existing=false}={}){
  const ids=['ownerMarkDbControls','ownerMarkDbStatus','ownerMarkPassword','ownerMarkLogin',
   'ownerMarkLogout','ownerMarkSave','ownerMarkRestore','ownerMarkLoginRow'];
  const elements=new Map(ids.map(id=>[id,{
@@ -22,6 +22,9 @@ function harness({configured=true,phase='final',verified=true}={}){
   marks:[{horseName:'馬A',mark:'◎'},{horseName:'馬B',mark:'○'}]
  }};
  let authenticated=false;
+ let remote=existing?{
+  phase:current.state.phase,revisionNo:1,revisionId:'old-revision',createdAt:'2026-10-09T23:00:00.000Z',
+  trackCondition:current.state.track,entries:[{horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]}:null;
  const calls=[];
  const json=value=>new Response(JSON.stringify(value),{headers:{'content-type':'application/json'}});
  async function fetcher(url,options={}){
@@ -30,13 +33,17 @@ function harness({configured=true,phase='final',verified=true}={}){
   if(url==='/v1/lab/user-mark-session'&&method==='GET')return json({ok:true,configured,authenticated});
   if(url==='/v1/lab/user-mark-session'&&method==='POST'){authenticated=true;return json({ok:true,authenticated:true});}
   if(url==='/v1/lab/user-mark-session'&&method==='DELETE'){authenticated=false;return json({ok:true});}
-  if(url==='/v1/lab/user-marks/save'&&method==='POST')
-   return json({ok:true,stage:'db-written-readback-verified',revisionNo:1,entryCount:2,
+  if(url==='/v1/lab/user-marks/save'&&method==='POST'){
+   const body=JSON.parse(options.body);
+   const rev=(remote?.revisionNo||0)+1;
+   remote={phase:body.phase,revisionNo:rev,revisionId:'revision-'+rev,
+    createdAt:'2026-10-10T00:00:00.000Z',trackCondition:body.track||null,
+    entries:body.marks.map(m=>({horse_no:m.horseNo??null,horse_name:m.horseName,mark:m.mark}))};
+   return json({ok:true,stage:'db-written-readback-verified',revisionNo:rev,entryCount:body.marks.length,
     savedAt:'2026-10-10T00:00:00.000Z',verifiedAt:'2026-10-10T00:00:01.000Z'});
-  if(url.startsWith('/v1/lab/user-marks?'))return json({ok:true,latest:[{
-   phase:current.state.phase,revisionNo:1,trackCondition:current.state.track,
-   entries:[{horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]
-  }]});
+  }
+  if(url.startsWith('/v1/lab/user-marks?'))
+   return json({ok:true,raceKey:'2026-10-11:東京:11',latest:remote?[remote]:[]});
   throw Error('unexpected route '+url+' '+method);
  }
  const payload=(t,s)=>({date:t.date,venue:t.venue,raceNo:t.raceNo,phase:s.phase,
@@ -87,4 +94,18 @@ test('initial picks transmit verified horse numbers only after official roster v
  const save=h.calls.find(c=>c.url==='/v1/lab/user-marks/save');
  assert.equal(save.body.phase,'initial');
  assert.deepEqual(save.body.marks.map(m=>m.horseNo),[1,2]);
+});
+
+test('re-login with identical persisted revision skips immutable DB write',async()=>{
+ const h=harness({existing:true});await tick();
+ await h.elements.get('ownerMarkLogin').click();await tick();
+ assert.equal(h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length,0);
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/既存履歴と一致/);
+});
+test('restored unchanged saved marks are not written as a fresh revision',async()=>{
+ const h=harness({existing:true});await tick();
+ await h.elements.get('ownerMarkLogin').click();await tick();
+ await h.elements.get('ownerMarkRestore').click();await tick();
+ assert.equal(h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length,0);
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/復元しました/);
 });
