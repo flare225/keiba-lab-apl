@@ -83,7 +83,7 @@ export function mountMarkSaving({document,window,getCurrent,verifiedMarkPayload,
    lastRemote={key:before,data:verified};
    message('正式DB保存と読み戻し照合が成功：改訂 '+saved.revisionNo+'版。保存時刻と事前LOCKは別途確認が必要です。');
   }catch(e){lastRemote=null;message('正式DB保存を確認できませんでした：'+e.message+'。重複保存を避け、まずDB保存状態を確認してください。');}
-  finally{pending=false;refresh.disabled=false;status();}
+  finally{pending=false;refresh.disabled=false;const feedback=info.textContent;status();if(current()&&stateKey(current())===before)info.textContent=feedback;}
  }
  function exportText(){
   const c=current();if(!c)return'';
