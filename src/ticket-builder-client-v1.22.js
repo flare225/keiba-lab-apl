@@ -1,7 +1,7 @@
 export function mountTicketBuilder({
  document,window,api,getRace,getMarks,verifyRoster,
  WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,
- validateTicketStake,calculateTicketSlip
+ validateTicketStake,calculateTicketSlip,renderTicketSelectionMatrix
 }){
  const $=id=>document.getElementById(id),el=$('ticketGroups');
  if(!el)return;
@@ -68,11 +68,8 @@ export function mountTicketBuilder({
   notice.textContent='現在の印を候補にセットしました。馬番を押して自由に変更できます。';renderGroups();
  }
  function renderGroups(){
-  const labels=groupsForMethod(),marks=chosenMarks(),enabled=ready;
-  el.innerHTML=labels.map((label,index)=>'<div class="tb-group"><h4>'+esc(label)+' <small>'+groups[index].length+'頭</small></h4><div class="tb-horses">'+(runners.length?runners.map(r=>{
-   const selected=groups[index].includes(r.horseNo),mark=marks.get(r.horseNo)||'';
-   return '<button type="button" class="tb-horse'+(selected?' selected':'')+'" data-group="'+index+'" data-no="'+r.horseNo+'" aria-pressed="'+selected+'"'+(!enabled?' disabled':'')+'><span class="tb-no">'+r.horseNo+'</span><span class="tb-horse-text"><small>'+r.frameNo+'枠'+(mark?' · '+esc(mark):'')+'</small>'+esc(r.horseName)+'</span></button>';
-  }).join(''):'<p class="notice">公式出馬表の取得・照合を確認してください。</p>')+'</div></div>').join('');
+  const labels=groupsForMethod(),marks=chosenMarks();
+  el.innerHTML=renderTicketSelectionMatrix({runners,groups,labels,marks,ready});
   renderPreview();
  }
  function config(){return{type:type.value,method:method.value,groups,multi:multi.checked,axisPosition:Number(axisPosition.value||1),roster:runners};}
@@ -111,7 +108,7 @@ export function mountTicketBuilder({
   const d=state();lines.push('合計 '+d.count+'点 / '+d.total+'円','予算 '+d.budget+'円 / 残り '+d.remaining+'円');return lines.join('\n');
  }
  async function refreshRace(){
-  const seq=++requestId,t=currentRace();
+  const seq=++requestId,t=currentRace();const exportBox=$('ticketExportText');if(exportBox){exportBox.hidden=true;exportBox.value='';}
   ready=false;runners=[];entries=[];groups=[[],[],[]];signature='';currentKey=t?t.date+'|'+t.venue+'|'+t.raceNo:'';
   title.textContent=t?t.date+' '+t.venue+t.raceNo+'R '+(t.raceName||''):'レース未選択';
   gate.textContent='公式番号付き出馬表を確認中…';notice.textContent='';renderGroups();renderSlip();
@@ -131,7 +128,14 @@ export function mountTicketBuilder({
    loadSaved();renderGroups();renderSlip();
   }catch(e){if(seq===requestId){gate.textContent='出馬表を確認できません。再度レースを選択してください。';notice.textContent='取得エラー：'+e.message;renderGroups();}}
  }
- el.addEventListener('click',e=>{const button=e.target.closest?.('button[data-group][data-no]');if(!button||!ready)return;const index=Number(button.dataset.group),number=Number(button.dataset.no),arr=groups[index];if(!arr||!runners.some(x=>x.horseNo===number))return;groups[index]=arr.includes(number)?arr.filter(n=>n!==number):[...arr,number].sort((a,b)=>a-b);renderGroups();});
+ el.addEventListener('click',e=>{const button=e.target.closest?.('button[data-group][data-no]');if(!button||!ready)return;const index=Number(button.dataset.group),number=Number(button.dataset.no),arr=groups[index];if(!arr||!runners.some(x=>x.horseNo===number))return;groups[index]=arr.includes(number)?arr.filter(n=>n!==number):[...arr,number].sort((a,b)=>a-b);
+ const selected=groups[index].includes(number);
+ button.classList.toggle('selected',selected);
+ button.setAttribute('aria-pressed',String(selected));
+ const name=runners.find(x=>x.horseNo===number)?.horseName||'選択馬',group=groupsForMethod()[index]||'組';
+ button.setAttribute('aria-label',name+'：'+group+'を'+(selected?'解除':'選択'));
+ const counter=el.querySelector('[data-group-count="'+index+'"]');if(counter)counter.textContent=groups[index].length+'頭';
+ renderPreview();});
  type.addEventListener('change',()=>{methodOptions();renderGroups();});
  method.addEventListener('change',()=>{groups=[[],[],[]];updateMethodSettings();renderGroups();});
  axisPosition.addEventListener('change',renderPreview);multi.addEventListener('change',renderPreview);
@@ -142,9 +146,10 @@ export function mountTicketBuilder({
  budget.addEventListener('change',()=>{if(!Number.isSafeInteger(Number(budget.value))||Number(budget.value)<100||Number(budget.value)%100){notice.textContent='予算は100円以上の100円単位にしてください。';return;}save();renderSlip();});
  itemsBox.addEventListener('click',e=>{const btn=e.target.closest?.('[data-remove]');if(!btn)return;entries.splice(Number(btn.dataset.remove),1);notice.textContent='買い目を削除しました。';save();renderSlip();});
  itemsBox.addEventListener('change',e=>{const field=e.target.closest?.('input[data-stake]');if(!field)return;const i=Number(field.dataset.stake),stake=validateTicketStake(field.value),before=entries[i];if(!before)return;if(stake===null){notice.textContent='1点100円以上、100円単位にしてください。';renderSlip();return;}const total=state().total-before.unitStake*before.combos.length+stake*before.combos.length;if(total>Number(budget.value)){notice.textContent='予算を超えるため変更を取り消しました。';renderSlip();return;}before.unitStake=stake;save();renderSlip();});
- $('ticketClearSlip').addEventListener('click',()=>{entries=[];notice.textContent='このレースの買い目を空にしました。';save();renderSlip();});
- $('ticketCopy').addEventListener('click',async()=>{if(!entries.length)return;try{await window.navigator.clipboard.writeText(exportText());notice.textContent='買い目と予算をコピーしました。';}catch{notice.textContent='コピーできませんでした。ブラウザのコピー権限を確認してください。';}});
+ $('ticketClearSlip').addEventListener('click',()=>{if(entries.length&&!window.confirm('このレースの買い目をすべて削除しますか？'))return;entries=[];notice.textContent='このレースの買い目を空にしました。';save();renderSlip();});
+ $('ticketCopy').addEventListener('click',async()=>{if(!entries.length)return;const value=exportText(),box=$('ticketExportText');try{await window.navigator.clipboard.writeText(value);if(box)box.hidden=true;notice.textContent='買い目と予算をコピーしました。';}catch{if(box){box.value=value;box.hidden=false;box.focus();box.select();notice.textContent='自動コピーできない環境です。下のテキストを長押ししてコピーしてください。';}else notice.textContent='自動コピーできません。ブラウザの権限を確認してください。';}});
  window.addEventListener('labo-target-change',refreshRace);
- document.addEventListener('click',e=>{if(e.target.closest?.('.tab[data-id="bets"]')&&(!ready||!currentKey))void refreshRace();});
+ document.addEventListener('click',e=>{if(!e.target.closest?.('.tab[data-id="bets"]'))return;if(!ready||!currentKey)void refreshRace();else renderGroups();});
+ window.addEventListener('labo-marks-changed',()=>{if(ready)renderGroups();});
  methodOptions();void refreshRace();
 }

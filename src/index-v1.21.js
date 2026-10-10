@@ -2,7 +2,8 @@ import app from './index-v1.19.js';
 import {describeAuditAlignment,summarizeMarkAudit,renderMarkAuditCards} from './mark-audit-cards-v1.22.js';
 import {WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip} from './ticket-formation-v1.22.js';
 import {mountTicketBuilder} from './ticket-builder-client-v1.22.js';
-export const VERSION='1.22.5';
+import {renderTicketSelectionMatrix} from './ticket-selection-matrix.js';
+export const VERSION='1.23.0';
 export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={}){
  const input=Number(budget),yen=Number.isFinite(input)&&input>=100?Math.floor(input/100)*100:0,clean=(Array.isArray(marks)?marks:[]).filter(x=>x&&(x.horseName||Number.isInteger(x.horseNo))&&['◎','○','▲','△','☆','注'].includes(x.mark)).slice(0,18).map(x=>({...x,horseName:(Number.isInteger(x.frameNo)?x.frameNo+'枠 ':'')+(Number.isInteger(x.horseNo)?x.horseNo+'番 ':'')+(x.horseName||'')})),by=m=>clean.filter(x=>x.mark===m).map(x=>x.horseName);
  const main=[...by('◎'),...by('○'),...by('▲')].slice(0,6),insurance=[...by('△'),...by('☆'),...by('注')].slice(0,6),items=[],enabled=new Set(Array.isArray(types)?types:['馬連','ワイド','三連複','三連単']);
@@ -65,7 +66,7 @@ export function homeRaceSummary(data){
 export const enhancement=String.raw`
 <style>
 header{flex-wrap:wrap}header>.controls{margin-top:0}
-.navin{grid-template-columns:repeat(5,minmax(0,1fr));width:100%;min-width:0}.navin .tab{min-width:0;padding-left:2px;padding-right:2px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.navin{grid-template-columns:repeat(6,minmax(0,1fr));width:100%;min-width:0}.nav{padding-bottom:env(safe-area-inset-bottom)}.wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}.navin .tab{min-width:0;min-height:58px;padding:7px 2px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;touch-action:manipulation}.navin .tab:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
 .controls[hidden],.marks[hidden],#expectedInlineRoster[hidden]{display:none!important}
 .expected-inline-row{display:grid;grid-template-columns:minmax(0,1fr) 100px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.expected-inline-row label{font-size:16px;font-weight:750}.expected-inline-row select{width:100%;min-height:46px}.expected-inline-list{margin:12px 0}.expected-inline-note{font-size:13px;line-height:1.6;color:var(--muted)}
 .external-mark-import{display:grid;gap:7px;margin:12px 0;padding:10px;border:1px solid var(--line);border-radius:11px;background:var(--soft)}.external-mark-import textarea{width:100%;font:inherit;line-height:1.5}.external-mark-import .btn{justify-self:start}
@@ -78,6 +79,24 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
 @media(max-width:600px){.labo-pool-list{grid-template-columns:minmax(0,1fr)}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.markrow{grid-template-columns:64px minmax(0,1fr) 64px;gap:6px}.expected-inline-row{grid-template-columns:minmax(0,1fr) 86px;gap:8px}.row{flex-wrap:wrap}.row>*{min-width:0;max-width:100%}.row .r{max-width:100%;text-align:left}select{max-width:100%}.decision-grid{grid-template-columns:minmax(0,1fr)}.navin .tab{font-size:11px;padding-top:9px;padding-bottom:9px}.navin .tab b{display:block;font-size:15px;line-height:1.1}}
 .labo-comparison-title{font-weight:800;font-size:16px;margin:8px 0}.precard-race-meta{font-size:13px}.precard-explain,.precard-guard{font-size:13px}
 .bet-type-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:10px;min-width:0}.bet-type-grid legend{font-weight:800;padding:0 6px}.bet-type-grid label{display:flex;gap:8px;align-items:center;padding:7px 5px}.bet-type-grid input{min-height:auto;width:19px;height:19px}.bet-rows{display:grid;gap:10px;margin-top:10px}.bet-row{border:1px solid var(--line);border-radius:12px;padding:11px;background:var(--soft)}.bet-row h4{margin:0 0 6px}.bet-label{display:inline-block;margin-bottom:4px;padding:2px 7px;border-radius:999px;background:var(--accent);color:#071018;font-size:11px;font-weight:800}.bet-combos{font-size:13px;color:var(--text);line-height:1.7}.bet-amount{margin-top:7px;font-weight:800;color:var(--accent)}
+.tb-export{width:100%;min-height:140px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text);line-height:1.55;font-size:14px;resize:vertical}.tb-export[hidden]{display:none!important}
+.tb-matrix{width:100%;display:grid;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tb-matrix-row{display:grid;align-items:center;gap:5px;padding:7px 8px;border-bottom:1px solid var(--line);min-width:0}
+.tb-matrix-row:last-child{border-bottom:0}
+.tb-matrix-row:nth-child(even){background:var(--soft)}
+.tb-matrix-header{position:sticky;top:0;z-index:1;background:var(--panel2)!important;font-size:11px;text-align:center;font-weight:750}
+.tb-matrix-header>span:first-child{text-align:left}
+.tb-matrix-header>span{min-width:0;overflow-wrap:anywhere}
+.tb-matrix-header b,.tb-matrix-header small{display:block;font-size:11px}
+.tb-matrix-header small{color:var(--muted);font-weight:500}
+.tb-matrix-horse{display:grid;gap:1px;min-width:0;overflow-wrap:anywhere}
+.tb-matrix-horse b{font-size:11px;color:var(--muted);font-weight:600}
+.tb-matrix-horse span{font-size:13px;font-weight:750;line-height:1.3}
+.tb-matrix-horse small{font-size:11px;color:var(--accent)}
+.tb-matrix-pick{min-height:44px;min-width:40px;max-width:52px;width:100%;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font-size:20px;font-weight:800;cursor:pointer;touch-action:manipulation}
+.tb-matrix-pick.selected{background:var(--accent);color:#071018;border-color:var(--accent)}
+.tb-matrix-pick:disabled{opacity:.45;cursor:not-allowed}
+.tb-matrix-pick:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .tb-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center}.tb-head h2{margin:0;font-size:19px}.tb-status{font-size:12px;padding:8px 10px;margin:10px 0;color:var(--muted);border:1px solid var(--line);border-radius:10px}.tb-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}.tb-fields label{display:grid;gap:4px;min-width:0;font-size:13px}.tb-fields input,.tb-fields select{width:100%;min-width:0}.tb-options{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}.tb-options label{display:flex;align-items:center;gap:7px;font-size:13px}.tb-options input{min-height:auto;width:19px;height:19px}.tb-options [hidden]{display:none!important}.tb-groups{display:grid;gap:12px}.tb-group{padding:12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;min-width:0}.tb-group h4{margin:0 0 10px}.tb-group h4 small{color:var(--muted)}.tb-horses{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:7px}.tb-horse{min-width:0;display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:9px;text-align:left;background:var(--panel);color:var(--text);cursor:pointer}.tb-horse.selected{border-color:var(--accent);background:#183653}.tb-horse:disabled{opacity:.55;cursor:not-allowed}.tb-no{background:#26384a;color:white;min-width:30px;min-height:30px;display:grid;place-items:center;border-radius:7px;font-size:16px;font-weight:850}.tb-horse.selected .tb-no{background:var(--accent);color:#071018}.tb-horse-text{min-width:0;overflow-wrap:anywhere;font-size:13px;font-weight:750}.tb-horse-text small{display:block;color:var(--muted);font-size:11px;font-weight:500}.tb-preview{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:12px;line-height:1.7}.tb-preview b{font-size:21px}.tb-preview strong{font-size:20px;color:var(--accent)}.tb-combos{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}.tb-combos span{display:inline-block;padding:4px 7px;font-size:12px;background:#132738;border:1px solid #294156;border-radius:7px}.tb-summary{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0}.tb-summary strong{font-size:20px}.tb-summary.over{border-color:#bb5c4f;color:var(--bad)}.tb-slip-card{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}.tb-slip-top{display:flex;justify-content:space-between;align-items:center;gap:10px}.tb-slip-money{font-size:13px;margin:8px 0}.tb-slip-money label{white-space:nowrap}.tb-slip-money input{width:84px;min-height:36px;padding:6px}.tb-slip-card summary{cursor:pointer}.tb-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.tb-note{font-size:13px;line-height:1.7;color:var(--muted)}@media(max-width:600px){.tb-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.tb-horses{grid-template-columns:repeat(2,minmax(0,1fr))}.tb-horse{padding:7px;gap:5px}.tb-no{min-width:27px}.tb-horse-text{font-size:12px}.tb-fields input,.tb-fields select{font-size:16px}}
 .formation-title{padding:12px 14px;background:#4654b5;color:#fff;font-size:19px;font-weight:800}.formation-line{display:grid;grid-template-columns:70px 1fr;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);font-size:16px}.formation-line b{background:#555;color:#fff;padding:3px 8px;text-align:center}.formation-meta{display:flex;justify-content:space-between;align-items:center;padding:14px;font-size:13px}.formation-meta strong{color:#e85b5b;font-size:25px}
 .audit-readable{max-width:100%;min-width:0;overflow-wrap:anywhere;color:var(--text);font-size:14px;line-height:1.6}
@@ -150,7 +169,12 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
  function refreshReturningHome(){if(document.visibilityState!=='hidden'&&Date.now()-learningCheckedAt>=60000)refreshHomeLearning();}
  document.addEventListener('visibilitychange',refreshReturningHome);window.addEventListener('pageshow',refreshReturningHome);
  const openSystem=document.getElementById('openSystem');
- function openView(id){if(id==='home')refreshReturningHome();document.querySelectorAll('section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.id===id));openSystem?.setAttribute('aria-expanded',String(id==='system'));window.scrollTo({top:0,behavior:'instant'});document.getElementById(id)?.querySelector('h2')?.focus({preventScroll:true});}
+ function openView(id){if(id==='home')refreshReturningHome();document.querySelectorAll('section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.tab').forEach(x=>{const selected=x.dataset.id===id;x.classList.toggle('active',selected);x.setAttribute?.('aria-current',selected?'page':'false');});openSystem?.setAttribute('aria-expanded',String(id==='system'));window.scrollTo({top:0,behavior:'instant'});document.getElementById(id)?.querySelector('h2')?.focus({preventScroll:true});}
+ document.querySelectorAll('.navin .tab').forEach(tab=>{
+  tab.tabIndex=0;tab.setAttribute('role','button');tab.setAttribute('aria-current',tab.classList.contains('active')?'page':'false');
+  tab.addEventListener('click',()=>{document.querySelectorAll('.navin .tab').forEach(x=>x.setAttribute('aria-current',x===tab?'page':'false'));window.scrollTo({top:0,behavior:'instant'});});
+  tab.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();tab.click();}});
+ });
  const betRows=document.getElementById('betRows'),betSummary=document.getElementById('betSummary');
  const betMode=document.getElementById('betMode');if(betMode&&!document.getElementById('betTypes')){const field=document.createElement('fieldset');field.id='betTypes';field.className='bet-type-grid';const legend=document.createElement('legend');legend.textContent='券種（複数選択）';field.append(legend);['単勝','複勝','枠連','馬連','馬単','ワイド','三連複','三連単'].forEach((type,i)=>{const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=type;input.checked=i>=3;label.append(input,document.createTextNode(type));field.append(label);});betMode.parentElement?.append(field);field.addEventListener('change',renderBets);}
  function renderBets(){if(!betRows||!betSummary)return;const t=window.getLaboTarget?.(),rosterMarks=typeof marks==='function'?marks():[],numbered=rosterMarks.map(x=>{const n=rosterNumbers[x.horseName]||{};return rosterVerified&&n.verified?{...x,horseNo:n.horseNo,frameNo:n.frameNo}:x;}),d=buildBudgetBets({budget:document.getElementById('betBudget')?.value,mode:document.getElementById('betMode')?.value,types:[...document.querySelectorAll('#betTypes input:checked')].map(x=>x.value),marks:numbered}),marked=rosterMarks.filter(x=>x.mark&&x.mark!=='消').map(x=>x.mark+' '+(x.horseName||x.horse||x.horseNo)).join(' / ');if(!d.ok){betSummary.innerHTML='<strong>まだ組めません：</strong> '+esc(d.message)+'<br><small>現在の印：'+esc(marked||'未入力')+'</small>';betRows.innerHTML='';return;}betSummary.innerHTML='<strong>買い目を確認：</strong> '+d.total.toLocaleString()+'円 / 予算 '+d.budget.toLocaleString()+'円 / 残り '+d.remaining.toLocaleString()+'円 · 合計 '+d.items.reduce((s,x)=>s+x.tickets,0)+'点'+(d.excluded?.length?' ／ 予算不足で除外：'+d.excluded.map(x=>esc(x.type)+' '+x.tickets+'点').join('、'):'')+'<br><small>対象印：'+esc(marked||'未入力')+'</small>';betRows.innerHTML=d.items.map(x=>'<article class="bet-row"><div class="bet-label">'+x.category+'</div><h4>'+x.type+'</h4><div class="bet-combos">'+x.combos.map(c=>c.map(esc).join(' → ')).join('<br>')+'</div><div class="bet-amount">'+x.tickets+'点 × 1点 '+x.unitStake.toLocaleString()+'円 = '+x.amount.toLocaleString()+'円</div></article>').join('');}
@@ -235,7 +259,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  }
  out.addEventListener('click',e=>{const button=e.target.closest?.('button[data-pool-action]');if(!button||!lastRendered)return;const action=button.dataset.poolAction;if(action==='marked')poolOnlyMarked=!poolOnlyMarked;else poolOrder=action;render(lastRendered.d,lastRendered.human);out.querySelector('[data-pool-action="'+action+'"]')?.focus({preventScroll:true});});
  async function compare(force=false){
-  if(!initial()){if(phaseInlineAvailable(phaseInput.value,rosterVerified,roster.length))await auditOfficialInline();else if(force)await window.auditOfficialMarks?.();return;}
+  if(!initial()){if(!force)return;if(phaseInlineAvailable(phaseInput.value,rosterVerified,roster.length))await auditOfficialInline();else await window.auditOfficialMarks?.();return;}
   const t=window.getLaboTarget?.(),human=marks();if(!t){out.textContent='対象レースを取得中です。';return;}
   if(!human.length){out.textContent='想定表で初期印を選ぶと、自動で仮比較します。';return;}
   if(running){queued=true;return;}
@@ -251,20 +275,36 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
   }catch(e){if(n===generation)out.textContent='仮比較を保留：'+e.message;}
   finally{running=false;if(queued){queued=false;schedule();}}
  }
+ let officialAuditBusy=false;
  async function auditOfficialInline(){
+ if(officialAuditBusy)return;
  const t=window.getLaboTarget?.(),phase=phaseInput.value,track=trackInput.value,human=marks(),k=key(t);
  if(!t||!rosterVerified){out.textContent='JRA番号付き出馬表の照合待ちです。初期印だけ準備できます。';return;}
  if(!human.length){out.textContent='出馬表の馬名の横で印を付けてください。';return;}
  if(phase==='final'&&!track){out.textContent='最終印のDB再精査には馬場想定を指定してください。';return;}
- out.textContent='JRA出馬表とDBの印監査を確認中…';
+ officialAuditBusy=true;
+ const action=document.querySelector('#marks button[onclick="auditMarks()"]');
+ const oldLabel=action?.textContent;
+ if(action){action.disabled=true;action.textContent='DB照合中…';}
+ out.textContent='JRA出馬表とDBの印監査を確認中…（保存済み評価の読み込みには時間がかかることがあります）';
  try{
   const body={date:t.date,venue:t.venue,raceNo:Number(t.raceNo),phase,marks:human};if(track)body.track=track;
   const response=await fetch(auditApi+'/v1/lab/user-mark-audit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),d=await response.json();
   if(k!==key(window.getLaboTarget?.())||phase!==phaseInput.value||JSON.stringify(human)!==JSON.stringify(marks()))return;
   publishAuditCards(d,{inline:true});
- }catch(e){if(k===key(window.getLaboTarget?.())&&phase===phaseInput.value){const message='印のDB監査に接続できませんでした。出馬表の保存状態とは別の通信エラーです。接続を確認し、少し待って再精査してください。';publishAuditCards({ok:false,error:message,race:{raceName:t.raceName},phase},{inline:true});}}
+ }catch(e){if(k===key(window.getLaboTarget?.())&&phase===phaseInput.value&&JSON.stringify(human)===JSON.stringify(marks())){const message='印のDB監査に接続できませんでした。出馬表の保存状態とは別の通信エラーです。接続を確認し、少し待って再精査してください。';publishAuditCards({ok:false,error:message,race:{raceName:t.raceName},phase},{inline:true});}}
+ finally{officialAuditBusy=false;if(action){action.disabled=false;action.textContent=oldLabel;}}
 }
- function schedule(){syncDraftContext();showMode();saveInline();saveDraft();showDraft();inputNames();generation++;clearTimeout(timer);timer=setTimeout(()=>compare(),450);}
+ function schedule(){
+  syncDraftContext();showMode();saveInline();saveDraft();showDraft();inputNames();generation++;clearTimeout(timer);
+  window.dispatchEvent(new Event('labo-marks-changed'));
+  if(!initial()){
+   out.textContent='印の変更をブラウザに下書き保存しました。正式なDB照合は「DBで再精査」を押したときに実行します。';
+   if(auditReport)auditReport.textContent='印が変更されました。以前の監査結果は最新ではありません。DBで再精査してください。';
+   return;
+  }
+  timer=setTimeout(()=>compare(),650);
+ }
  window.auditMarks=()=>compare(true);refresh.addEventListener('click',()=>compare(true));
  document.getElementById('marks').addEventListener('input',schedule);document.getElementById('marks').addEventListener('change',schedule);
  phaseInput.addEventListener('change',()=>{syncDraftContext();applyInlinePhaseValues();showMode();showDraft();refreshPhaseGate();});
@@ -277,12 +317,13 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  const validateTicketStake=${validateTicketStake.toString()};
  const calculateTicketSlip=${calculateTicketSlip.toString()};
  const mountTicketBuilder=${mountTicketBuilder.toString()};
- mountTicketBuilder({document,window,api,getRace:()=>window.getLaboTarget?.(),getMarks:()=>marks(),verifyRoster:verifiedOfficialRoster,WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip});
+ const renderTicketSelectionMatrix=${renderTicketSelectionMatrix.toString()};
+ mountTicketBuilder({document,window,api,getRace:()=>window.getLaboTarget?.(),getMarks:()=>marks(),verifyRoster:verifiedOfficialRoster,WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip,renderTicketSelectionMatrix});
  window.addEventListener('labo-target-change',targetChanged);targetChanged();
 })();
 </script>`;
 export default{async fetch(request,env,ctx){
- if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view','verified-jra-roster-number-overlay','budget-safe-allocation','formation-ticket-builder-8-types','readable-mark-audit-cards','same-origin-mark-audit-proxy','saudi-rc-selectable','official-marks-inline-all-phases']},{headers:{'cache-control':'no-store'}});
+ if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view','verified-jra-roster-number-overlay','budget-safe-allocation','formation-ticket-builder-8-types','readable-mark-audit-cards','same-origin-mark-audit-proxy','six-tab-mobile-nav','single-roster-bet-matrix','manual-official-audit','saudi-rc-selectable','official-marks-inline-all-phases']},{headers:{'cache-control':'no-store'}});
  const r=await app.fetch(request,env,ctx);if(!r.ok||!r.headers.get('content-type')?.includes('text/html'))return r;
  let html=await r.text();
  html=html.replace(/<section id="home" class="active">([\s\S]*?)<\/section>/,(_,content)=>'<section id="home" class="active"><div class="section-title">対象レース</div><div class="card"><h2 id="homeRaceTitle" class="section-title">対象レースを確認中</h2><p class="notice"><b>不足・未完了：</b><span id="homeRaceMissing">確認中…</span></p><p><b>次にすること：</b><span id="homeRaceNext"></span></p><button type="button" class="btn" id="homeRaceAction" data-home-view="race" disabled>次の操作へ</button></div><div class="card"><h2 class="section-title">現在は予想の判断補助</h2><p>過去走を使った参考比較ができます。予想精度はまだ検証できていません。</p><details><summary>評価できていない材料</summary><p>脚質・展開への適合と追い切りは参考指数に未反映です。未取得の馬場・通過順などは各馬の不足情報で確認できます。</p></details></div><div class="section-title">今週の重賞を選ぶ</div><div class="card"><div class="controls" id="raceQuickPick"><button type="button" class="btn secondary" data-race-date="2026-10-10">サウジアラビアRC（10/10）</button><button type="button" class="btn secondary" data-race-date="2026-10-11">アイルランドT（10/11）</button></div><p class="notice">レースを切り替えると馬名一覧と印の下書きも切り替わります。公式枠番は保存監査を通った場合のみ正式表示します。</p></div><div class="section-title">比較して予想を組み立てる</div><div class="card"><div class="controls"><button type="button" class="btn" data-home-view="marks">初期印・DB比較</button><button type="button" class="btn secondary" data-home-view="race">対象レース・馬場</button><button type="button" class="btn secondary" data-home-view="history">履歴・回顧</button></div></div><div class="section-title">学習データの蓄積</div><div class="card"><p id="homeLearning" role="status" class="notice">保存済みの学習データを確認中…</p><p id="homeValidation" class="notice">検証状況を確認中…</p><p id="homeCollection" class="notice"></p><p id="homeLearningUpdated" class="expected-inline-note"></p><div class="controls"><button type="button" class="btn secondary" id="refreshHomeLearning">学習状況を更新</button><a href="https://keiba-lab-api.sekai-no-bancyou.workers.dev/lab/work-progress" target="_blank" rel="noopener">補完待ち・詳しい進捗</a></div></div></section><section id="system" aria-labelledby="systemTitle"><div class="controls"><button type="button" class="btn secondary" id="closeSystem">ホームへ戻る</button></div><h2 id="systemTitle" tabindex="-1" class="section-title">システム情報</h2>'+content+'</section>');
@@ -303,7 +344,7 @@ export default{async fetch(request,env,ctx){
    <label id="ticketMultiHolder" hidden><input type="checkbox" id="ticketMulti"> マルチ（着順を入替）</label>
    <label id="ticketAxisHolder" hidden>軸の着順<select id="ticketAxisPosition"><option value="1">1着固定</option></select></label>
   </div>
-  <div class="tb-actions"><button class="btn secondary" type="button" id="ticketFromMarks">◎○▲の印から選ぶ</button><button class="btn secondary" type="button" id="ticketResetGroups">馬の選択を解除</button></div>
+  <div class="tb-actions"><button class="btn secondary" type="button" id="ticketFromMarks">印から候補をセット</button><button class="btn secondary" type="button" id="ticketResetGroups">馬の選択を解除</button></div>
   <div class="tb-groups" id="ticketGroups"></div>
   <div id="ticketPreview" class="tb-preview">馬番を選択してください。</div>
   <div class="tb-actions"><button class="btn" type="button" id="ticketAdd" disabled>この買い目を追加</button></div>
@@ -314,7 +355,7 @@ export default{async fetch(request,env,ctx){
   <div class="tb-fields"><label>合計予算（円）<input id="ticketBudget" type="number" min="100" step="100" inputmode="numeric" value="3000"></label></div>
   <div class="tb-summary" id="ticketSlipSummary">0点 · 0円</div>
   <div id="ticketSlipItems"></div>
-  <div class="tb-actions"><button class="btn" id="ticketCopy" type="button" disabled>買い目をコピー</button><button class="btn secondary" id="ticketClearSlip" type="button" disabled>リストを空にする</button></div>
+  <div class="tb-actions"><button class="btn" id="ticketCopy" type="button" disabled>買い目をコピー</button><button class="btn secondary" id="ticketClearSlip" type="button" disabled>リストを空にする</button></div><textarea id="ticketExportText" hidden readonly rows="8" class="tb-export" aria-label="手動でコピーする買い目"></textarea>
   <p class="tb-note">購入前の検討・記録用です。馬券購入や即PAT／IPAT連携は行いません。単勝オッズ・払戻金は計算に含めません。</p>
  </div>
 </section>`;
