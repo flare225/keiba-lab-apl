@@ -1,0 +1,22 @@
+name: KEIBA LABO mark persistence checks
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  mark-persistence-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Show Node version
+        run: node --version
+      - name: Validate persistence, readback, independent review and inline scripts
+        run: node --test tests/mark-owner-server.test.mjs tests/mark-owner-client.test.mjs tests/labo-independent-review.test.mjs
