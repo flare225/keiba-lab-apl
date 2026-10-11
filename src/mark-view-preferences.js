@@ -10,7 +10,7 @@ export function findRememberedRaceIndex(races,serialized){
  }catch{return -1;}
 }
 export function serializeRacePreference(race){
- if(!race||typeof race.date!=='string'||!/^20\\d{2}-\\d{2}-\\d{2}$/.test(race.date)||
+ if(!race||typeof race.date!=='string'||!/^20\d{2}-\d{2}-\d{2}$/.test(race.date)||
   typeof race.venue!=='string'||!race.venue||!Number.isInteger(Number(race.raceNo))||
   Number(race.raceNo)<1||Number(race.raceNo)>12)return null;
  return JSON.stringify({date:race.date,venue:race.venue,raceNo:Number(race.raceNo)});
