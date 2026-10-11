@@ -1,11 +1,11 @@
 import {MARK_EXPORT_CHOICES,MARK_EXPORT_PHASES,parseRace,collectSavedRaceMarks} from './mark-bulk-export-v1.24.js';
 export const PORTABLE_MARK_BACKUP_KIND='keiba-labo-local-mark-backup';
 export const PORTABLE_MARK_BACKUP_SCHEMA=1;
-const TRACK=['','良','稍重','重','不良'];
-const validDate=date=>typeof date==='string'&&/^20\d{2}-\d{2}-\d{2}$/.test(date)&&!Number.isNaN(Date.parse(date+'T00:00:00Z'))&&new Date(date+'T00:00:00Z').toISOString().slice(0,10)===date;
-const safeIso=x=>typeof x==='string'&&!Number.isNaN(Date.parse(x))?x:null;
-const raceId=x=>[x.date,x.venue,x.raceNo].join('|');
-function normalizeRecord(x){
+export const TRACK=['','良','稍重','重','不良'];
+export const validDate=date=>typeof date==='string'&&/^20\d{2}-\d{2}-\d{2}$/.test(date)&&!Number.isNaN(Date.parse(date+'T00:00:00Z'))&&new Date(date+'T00:00:00Z').toISOString().slice(0,10)===date;
+export const safeIso=x=>typeof x==='string'&&!Number.isNaN(Date.parse(x))?x:null;
+export const raceId=x=>[x.date,x.venue,x.raceNo].join('|');
+export function normalizeRecord(x){
  if(!x||typeof x!=='object'||Array.isArray(x)||!validDate(x.date)||
  !parseRace(raceId(x))||!MARK_EXPORT_PHASES.includes(x.phase)||
  !TRACK.includes(x.track||'')||!Array.isArray(x.marks)||x.marks.length<1||x.marks.length>18)
