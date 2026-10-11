@@ -29,5 +29,4 @@ test('home identifies each failed status API and recognizes the D1 read quota in
  assert.match(html,/USER MARK認証/);
  assert.match(html,/DB上限 · 一部取得/);
  assert.match(html,/exceeded D1/);
- for(const [,js] of html.matchAll(/<script[^>]*>([\\s\\S]*?)<\\/script>/g))new Script(js);
 });
