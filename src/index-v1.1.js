@@ -13,7 +13,30 @@ const html=String.raw`<!doctype html><html lang="ja"><head><meta charset="utf-8"
 const API=${JSON.stringify(API)};const $=id=>document.getElementById(id);const esc=s=>String(s??'—').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 async function get(path){const r=await fetch(API+path);const j=await r.json();if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j}
 function cls(ok){return ok?'ok':'warn'}
-async function refreshAll(){try{const [d,s,c,m]=await Promise.all([get('/v1/lab/deploy-check'),get('/v1/lab/scheduler-status?limit=1'),get('/v1/lab/saudi-rc-operational-status'),get('/v1/lab/user-mark-capabilities')]);$('apiVer').textContent='v'+d.version;$('apiVer').className='v ok';$('cron').textContent=s.cronHeartbeat==='observed'?'稼働':'確認中';$('cron').className='v '+cls(s.cronHeartbeat==='observed');$('gate').textContent=c.nextGate||'—';$('gate').className='v '+cls(c.gates?.readyToSeal);$('markState').textContent='監査OK';$('markState').className='v ok';$('opApi').textContent='v'+d.version;$('opWrite').textContent=m.writeReady?'保存可能':'認証待ち';$('opWrite').className='r '+cls(m.writeReady);$('sysRows').innerHTML='<div class="row"><span>Build</span><span class="r">'+esc(d.build)+'</span></div><div class="row"><span>Cron heartbeat</span><span class="r">'+esc(s.cronHeartbeat)+'</span></div><div class="row"><span>USER MARK独立入力</span><span class="r ok">'+(m.principles?.humanMarksAreIndependentInput?'有効':'—')+'</span></div>';$('last').textContent=new Date().toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo'})+' 更新';await renderRace(c)}catch(e){$('last').textContent='取得失敗';$('sysRows').innerHTML='<div class="bad">'+esc(e.message)+'</div>'}}
+async function refreshAll(){
+ const labels=['デプロイ確認','Cron状態','対象レース状態','USER MARK認証'];
+ const paths=['/v1/lab/deploy-check','/v1/lab/scheduler-status?limit=1','/v1/lab/saudi-rc-operational-status','/v1/lab/user-mark-capabilities'];
+ const checks=await Promise.allSettled(paths.map(path=>get(path))),values=[],errors=[];
+ checks.forEach((result,i)=>{if(result.status==='fulfilled')values[i]=result.value;else errors.push({label:labels[i],message:String(result.reason?.message||result.reason||'不明なエラー')});});
+ const [d,s,c,m]=values;
+ if(d){$('apiVer').textContent='v'+d.version;$('apiVer').className='v ok';$('opApi').textContent='v'+d.version;}
+ else{$('apiVer').textContent='取得失敗';$('apiVer').className='v bad';$('opApi').textContent='取得失敗';}
+ if(s){$('cron').textContent=s.cronHeartbeat==='observed'?'稼働':'確認中';$('cron').className='v '+cls(s.cronHeartbeat==='observed');}
+ else{$('cron').textContent='取得失敗';$('cron').className='v bad';}
+ if(c){$('gate').textContent=c.nextGate||'—';$('gate').className='v '+cls(c.gates?.readyToSeal);}
+ else{$('gate').textContent='取得失敗';$('gate').className='v bad';}
+ if(m){$('markState').textContent='状態取得OK';$('markState').className='v ok';$('opWrite').textContent=m.writeReady?'保存可能':'認証待ち';$('opWrite').className='r '+cls(m.writeReady);}
+ else{$('markState').textContent='取得失敗';$('markState').className='v bad';$('opWrite').textContent='確認できません';$('opWrite').className='r bad';}
+ const rows=[];
+ if(d)rows.push('<div class="row"><span>Build</span><span class="r">'+esc(d.build)+'</span></div>');
+ if(s)rows.push('<div class="row"><span>Cron heartbeat</span><span class="r">'+esc(s.cronHeartbeat)+'</span></div>');
+ if(m)rows.push('<div class="row"><span>USER MARK独立入力</span><span class="r '+(m.principles?.humanMarksAreIndependentInput?'ok':'warn')+'">'+(m.principles?.humanMarksAreIndependentInput?'有効':'—')+'</span></div>');
+ errors.forEach(x=>rows.push('<div class="row"><span class="bad">'+esc(x.label)+'</span><span class="r bad">'+esc(x.message)+'</span></div>'));
+ $('sysRows').innerHTML=rows.length?rows.join(''):'<div class="notice">確認結果なし</div>';
+ const quota=errors.some(x=>/exceeded D1['’]s free tier daily row read limit/i.test(x.message));
+ $('last').textContent=errors.length?(quota?'DB上限 · 一部取得 '+(4-errors.length)+'/4':'一部取得 '+(4-errors.length)+'/4')+' · '+errors.map(x=>x.label).join(' / '):new Date().toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo'})+' 更新';
+ if(c)await renderRace(c);
+}
 async function loadRace(){try{const t=$('track').value;const c=await get('/v1/lab/saudi-rc-operational-status'+(t?'?track='+encodeURIComponent(t):''));renderRace(c)}catch(e){$('nextGate').textContent=e.message}}
 function renderRace(c){$('precard').textContent=c.gates?.precardContextPublished?'保存済み':'公開待ち';$('precard').className='r '+cls(c.gates?.precardContextPublished);$('official').textContent=c.gates?.officialCardStored?'完全保存':'未保存';$('official').className='r '+cls(c.gates?.officialCardStored);$('nextGate').textContent=c.nextGate||'—';$('opCard').textContent=(c.storage?.storedRunnerRows||0)+' / '+(c.storage?.declaredRunnerCount||0)+'頭';}
 async function initHistory(){try{const d=await get('/v1/lab/history/dates?limit=12');$('historyDate').innerHTML=d.dates.map(x=>'<option value="'+esc(x.date)+'">'+esc(x.date)+' — '+x.races+'R / '+x.runners+'頭'+(x.resultComplete?' ✓':'')+'</option>').join('');if(d.dates.length){await loadHistoryRaces();$('historyStatus').innerHTML='<span class="pill ok">履歴API v'+esc(d.version)+'</span><span class="pill">'+d.dates.length+'開催日</span>'}else $('historyStatus').innerHTML='<span class="pill warn">保存済み開催日なし</span>'}catch(e){$('historyStatus').innerHTML='<span class="pill bad">'+esc(e.message)+'</span>'}}
