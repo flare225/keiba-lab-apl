@@ -9,7 +9,7 @@ import {USER_MARKS,TRACK_CONDITIONS,verifiedMarkPayload,initialLocalMarkPayload,
 import {mountMarkSaving} from './mark-save-client-v1.24.js';
 import {assignIndependentLaboMarks,buildIndependentLaboReview,renderIndependentLaboReview,mountIndependentLaboReview} from './labo-independent-review-v1.25.js';
 import {mountOwnerMarkSave} from './mark-owner-client-v1.25.js';
-import {MARK_PHASES,markPhaseStorageKey,readRememberedMarkPhase,serializeRacePreference} from './mark-view-preferences.js';
+import {MARK_PHASES,MARK_PHASE_STORAGE_PREFIX,markPhaseStorageKey,readRememberedMarkPhase,serializeRacePreference} from './mark-view-preferences.js';
 import {MARK_EXPORT_PHASES,MARK_EXPORT_LABELS,MARK_EXPORT_CHOICES,parseRace,snapshot,readStored,collectSavedRaceMarks,formatBulkRaceMarks,mountBulkRaceMarkCopy} from './mark-bulk-export-v1.24.js';
 import {PORTABLE_MARK_BACKUP_KIND,PORTABLE_MARK_BACKUP_SCHEMA,TRACK as PORTABLE_TRACK,validDate,safeIso,raceId,normalizeRecord,buildPortableMarkBackup,parsePortableMarkBackup,importPortableMarkBackup,mountPortableMarkBackup} from './mark-portable-backup.js';
 export const VERSION='1.25.0';
@@ -254,7 +254,7 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
  const renderIndependentLaboReview=${renderIndependentLaboReview.toString()};
  const mountIndependentLaboReview=${mountIndependentLaboReview.toString()};
  const mountOwnerMarkSave=${mountOwnerMarkSave.toString()};
- const MARK_PHASES=${JSON.stringify(MARK_PHASES)};const serializeRacePreference=${serializeRacePreference.toString()};const markPhaseStorageKey=${markPhaseStorageKey.toString()};const readRememberedMarkPhase=${readRememberedMarkPhase.toString()};
+ const MARK_PHASES=${JSON.stringify(MARK_PHASES)};const MARK_PHASE_STORAGE_PREFIX=${JSON.stringify(MARK_PHASE_STORAGE_PREFIX)};const serializeRacePreference=${serializeRacePreference.toString()};const markPhaseStorageKey=${markPhaseStorageKey.toString()};const readRememberedMarkPhase=${readRememberedMarkPhase.toString()};
  const MARK_EXPORT_PHASES=${JSON.stringify(MARK_EXPORT_PHASES)};
  const MARK_EXPORT_LABELS=${JSON.stringify(MARK_EXPORT_LABELS)};
  const MARK_EXPORT_CHOICES=${JSON.stringify(MARK_EXPORT_CHOICES)};
