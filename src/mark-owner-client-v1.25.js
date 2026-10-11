@@ -3,7 +3,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  if(!root)return;
  const state=el('ownerMarkDbStatus'),password=el('ownerMarkPassword'),login=el('ownerMarkLogin'),
   logout=el('ownerMarkLogout'),save=el('ownerMarkSave'),restore=el('ownerMarkRestore'),loginRow=el('ownerMarkLoginRow');
- let configured=false,authenticated=false,working=false,timer=null,lastSaved='',seq=0;
+ let configured=false,authenticated=false,workerWriteTokenMatch=false,working=false,timer=null,lastSaved='',seq=0;
  const current=()=>{const c=getCurrent();return c?.target?c:null;};
  const key=c=>[c.target.date,c.target.venue,c.target.raceNo,c.state.phase,c.state.track||'',JSON.stringify(c.state.marks)].join('|');
  const payload=c=>{
@@ -19,19 +19,32 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  const update=()=>{
   const c=current();
   loginRow.hidden=!configured||authenticated;login.disabled=!configured||authenticated||working;
-  logout.hidden=!authenticated;logout.disabled=working;save.disabled=!authenticated||working||!c||!c.state.marks.length;
+  logout.hidden=!authenticated;logout.disabled=working;save.disabled=!authenticated||!workerWriteTokenMatch||working||!c||!c.state.marks.length;
   restore.disabled=!authenticated||working||!c;
  };
  const msg=x=>{state.textContent=x;update();};
+ async function checkWorkerToken(){
+  workerWriteTokenMatch=false;working=true;update();msg('VercelとCloudflareの保存トークンをDB書込なしで照合中…');
+  try{
+   const r=await fetcher('/v1/lab/user-mark-session',{method:'POST',credentials:'same-origin',
+    headers:{'content-type':'application/json'},body:JSON.stringify({action:'check-worker-write-token'})});
+   const d=await r.json();
+   if(!r.ok||!d.ok)throw Error(d.error||'照合できません。');
+   workerWriteTokenMatch=d.workerWriteTokenMatch===true;
+   if(workerWriteTokenMatch)msg('保存トークン一致を確認しました（DB書込なし）。DB保存はまだ実行していません。保存ボタンを押すまで印は送信しません。');
+   else msg('VercelとCloudflareの保存トークンが一致しません。DB書込を停止しました。秘密値は表示していません。');
+  }catch(e){workerWriteTokenMatch=false;msg('保存トークンを確認できません。DB書込は停止中です：'+e.message);}
+  finally{working=false;update();}
+ }
  async function session(){
   try{
    const resp=await fetcher('/v1/lab/user-mark-session',{credentials:'same-origin',cache:'no-store'});
    const d=await resp.json();if(!resp.ok||!d.ok)throw Error(d.error||'認証状態を確認できません。');
-   configured=d.configured===true;authenticated=d.authenticated===true;update();if(authenticated)queue();
+   configured=d.configured===true;authenticated=d.authenticated===true;update();
+   if(authenticated){await checkWorkerToken();return;}
    msg(!configured?'DB正式保存：認証・サーバー接続設定が未完了。現在は端末内保存のみです。':
-    authenticated?'DB正式保存：本人認証済み。現在の印は未照合です。再照合に成功した場合のみ保存済みと表示します。':
     'DB正式保存：本人認証待ち。管理者キーではなく、登録した本人用パスフレーズを入力してください。');
-  }catch(e){configured=false;authenticated=false;msg('DB正式保存：接続確認失敗。端末内の下書き・コピーを利用してください。');}
+  }catch(e){configured=false;authenticated=false;workerWriteTokenMatch=false;msg('DB正式保存：接続確認失敗。端末内の下書き・コピーを利用してください。');}
  }
  login.addEventListener('click',async()=>{
   if(!configured||working)return;
@@ -39,14 +52,14 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   try{
    const r=await fetcher('/v1/lab/user-mark-session',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({passphrase})});
    const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'認証できません。');
-   authenticated=true;msg('本人認証済み。印をDBへ保存できます。');
-  }catch(e){authenticated=false;msg('本人認証できません：'+e.message);}
-  finally{working=false;update();if(authenticated)queue();}
+   authenticated=true;working=false;await checkWorkerToken();
+  }catch(e){authenticated=false;workerWriteTokenMatch=false;msg('本人認証できません：'+e.message);}
+  finally{working=false;update();}
  });
  logout.addEventListener('click',async()=>{
   if(working)return;
   try{await fetcher('/v1/lab/user-mark-session',{method:'DELETE',credentials:'same-origin'});}catch{}
-  authenticated=false;lastSaved='';msg('ログアウトしました。DB正式保存は停止中です。');
+  authenticated=false;workerWriteTokenMatch=false;lastSaved='';msg('ログアウトしました。DB正式保存は停止中です。');
  });
  const matchesRemote=(rev,body)=>{
   if(!rev||rev.phase!==body.phase||!Number.isInteger(rev.revisionNo)||rev.revisionNo<1)return false;
@@ -63,7 +76,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   });
  };
  async function persist(force=false){
-  const c=current();if(!authenticated||!c||working)return;
+  const c=current();if(!authenticated||!workerWriteTokenMatch||!c||working)return;
   let body;try{body={...payload(c),confirm:'SAVE'};}catch(e){if(force)msg('DBへ保存できません：'+e.message);return;}
   const snapshot=key(c);if(!force&&snapshot===lastSaved)return;
   working=true;update();msg('DBへ保存中…（正式DBの再照合が終わるまで確定ではありません）');
@@ -95,13 +108,11 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
    if(authenticated&&current()&&key(current())!==snapshot)queue();
   }
  }
- const queue=()=>{if(timer!==null)clearTimeout(timer);if(!authenticated)return;
-  timer=setTimeout(()=>{timer=null;void persist(false);},scheduleDelay);
- };
+ const queue=()=>{if(timer!==null)clearTimeout(timer);timer=null;};
  save.addEventListener('click',()=>{if(timer!==null)clearTimeout(timer);timer=null;void persist(true);});
- window.addEventListener('labo-marks-changed',()=>{const c=current();if(authenticated&&c&&key(c)!==lastSaved)msg('DB未保存：現在の印は変更されています。自動保存とDB再照合を待っています。');queue();});
- window.addEventListener('labo-target-change',()=>{if(timer!==null)clearTimeout(timer);timer=null;lastSaved='';msg('対象レースを切り替えました。現在の印は正式DB保存未確認です。');if(authenticated)queue();});
- window.addEventListener('labo-roster-ready',()=>{update();if(authenticated)queue();});
+ window.addEventListener('labo-marks-changed',()=>{const c=current();if(authenticated&&c&&key(c)!==lastSaved)msg(workerWriteTokenMatch?'DB未保存：現在の印が変更されています。「DBへ今すぐ保存」を押すまで送信しません。':'DB未保存：保存トークンの確認が完了していません。');});
+ window.addEventListener('labo-target-change',()=>{if(timer!==null)clearTimeout(timer);timer=null;lastSaved='';msg('対象レースを切り替えました。現在の印は正式DB保存未確認です。保存ボタンを押すまでDBへ送信しません。');});
+ window.addEventListener('labo-roster-ready',()=>{update();});
  restore.addEventListener('click',async()=>{
   const c=current();if(!authenticated||working||!c)return;
   if(!window.confirm('現在の画面の印を、正式DBに保存された印で置き換えます。よろしいですか？'))return;

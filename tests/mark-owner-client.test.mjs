@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mountOwnerMarkSave} from '../src/mark-owner-client-v1.25.js';
 
-function harness({configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false}={}){
+function harness({configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false,tokenMatches=true}={}){
  const ids=['ownerMarkDbControls','ownerMarkDbStatus','ownerMarkPassword','ownerMarkLogin',
   'ownerMarkLogout','ownerMarkSave','ownerMarkRestore','ownerMarkLoginRow'];
  const elements=new Map(ids.map(id=>[id,{
@@ -31,7 +31,11 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
   const method=options.method||'GET';
   calls.push({url,method,body:options.body?JSON.parse(options.body):null});
   if(url==='/v1/lab/user-mark-session'&&method==='GET')return json({ok:true,configured,authenticated});
-  if(url==='/v1/lab/user-mark-session'&&method==='POST'){authenticated=true;return json({ok:true,authenticated:true});}
+  if(url==='/v1/lab/user-mark-session'&&method==='POST'){
+   const body=options.body?JSON.parse(options.body):{};
+   if(body.action==='check-worker-write-token')return json({ok:true,workerWriteTokenMatch:tokenMatches,mode:'no-write'});
+   authenticated=true;return json({ok:true,authenticated:true});
+  }
   if(url==='/v1/lab/user-mark-session'&&method==='DELETE'){authenticated=false;return json({ok:true});}
   if(url==='/v1/lab/user-marks/save'&&method==='POST'){
    const body=JSON.parse(options.body);
@@ -61,6 +65,13 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
  return {elements,window,current,calls,fetcher};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,30));
+test('token mismatch keeps DB save disabled and never sends marks',async()=>{
+ const h=harness({tokenMatches:false});await tick();
+ await h.elements.get('ownerMarkLogin').click();await tick();
+ assert.equal(h.elements.get('ownerMarkSave').disabled,true);
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/一致しません/);
+ assert.equal(h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length,0);
+});
 test('unconfigured auth never sends formal DB writes',async()=>{
  const h=harness({configured:false});
  await tick();
@@ -68,31 +79,37 @@ test('unconfigured auth never sends formal DB writes',async()=>{
  assert.equal(h.calls.filter(c=>c.url.includes('/save')).length,0);
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/未完了/);
 });
-test('login saves only after auth finishes and edits immediately revoke saved label',async()=>{
+test('login checks token parity without writing; saves only on explicit click and edits revoke saved label',async()=>{
  const h=harness();await tick();
  h.elements.get('ownerMarkPassword').value='test-passphrase';
  await h.elements.get('ownerMarkLogin').click();await tick();
  const writes=()=>h.calls.filter(c=>c.url==='/v1/lab/user-marks/save');
+ assert.equal(writes().length,0);
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/DB書込なし/);
+ await h.elements.get('ownerMarkSave').click();await tick();
  assert.equal(writes().length,1);
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/DB保存済み・再照合成功/);
  h.current.state.marks[0].mark='▲';
  h.window.dispatchEvent(new Event('labo-marks-changed'));
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/DB未保存/);
  await tick();
+ assert.equal(writes().length,1);
+ await h.elements.get('ownerMarkSave').click();await tick();
  assert.equal(writes().length,2);
 });
 test('DB restore does not generate an additional revision',async()=>{
- const h=harness();await tick();
+ const h=harness({existing:true});await tick();
  await h.elements.get('ownerMarkLogin').click();await tick();
  const count=()=>h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length;
- assert.equal(count(),1);
+ assert.equal(count(),0);
  await h.elements.get('ownerMarkRestore').click();await tick();
- assert.equal(count(),1);
+ assert.equal(count(),0);
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/復元しました/);
 });
 test('initial picks transmit verified horse numbers only after official roster verification',async()=>{
  const h=harness({phase:'initial',verified:true});await tick();
  await h.elements.get('ownerMarkLogin').click();await tick();
+ await h.elements.get('ownerMarkSave').click();await tick();
  const save=h.calls.find(c=>c.url==='/v1/lab/user-marks/save');
  assert.equal(save.body.phase,'initial');
  assert.deepEqual(save.body.marks.map(m=>m.horseNo),[1,2]);
@@ -101,12 +118,14 @@ test('initial picks transmit verified horse numbers only after official roster v
 test('re-login with identical persisted revision skips immutable DB write',async()=>{
  const h=harness({existing:true});await tick();
  await h.elements.get('ownerMarkLogin').click();await tick();
+ await h.elements.get('ownerMarkSave').click();await tick();
  assert.equal(h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length,0);
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/既存履歴と一致/);
 });
 test('restored unchanged saved marks are not written as a fresh revision',async()=>{
  const h=harness({existing:true});await tick();
  await h.elements.get('ownerMarkLogin').click();await tick();
+ await h.elements.get('ownerMarkSave').click();await tick();
  await h.elements.get('ownerMarkRestore').click();await tick();
  assert.equal(h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length,0);
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/復元しました/);
@@ -125,7 +144,7 @@ test('restore refuses saved marks from a different race even when the phase matc
 
 test('restore aborts rather than overwriting an edit made during a slow DB response',async()=>{
  const h=harness({existing:true,onRead:async({current,calls})=>{
-  if(calls.filter(c=>c.url.startsWith('/v1/lab/user-marks?')).length>=2){
+  if(calls.filter(c=>c.url.startsWith('/v1/lab/user-marks?')).length>=1){
    current.state.marks[0].mark='▲';
   }
  }});await tick();
