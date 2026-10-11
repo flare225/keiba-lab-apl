@@ -22,6 +22,29 @@ test('portable backup exports structured date/race/horse names without asserting
  assert.equal(backup.records[0].originalDeviceSavedAt,'2026-10-10T23:20:00.000Z');
  assert.doesNotMatch(text,/db-written-readback-verified|preRaceLock":true/);
 });
+test('JSON backup keeps initial, post-draw and final marks for the SAME race independently',()=>{
+ const stem=date+'|東京|11';
+ const seed=storage({
+  [base+stem]:JSON.stringify({marks:{'試験馬A':'◎','試験馬B':'○'},savedAt:'2026-10-10T01:00:00.000Z'}),
+  ['keiba-labo:mark-draft:v1:'+stem+'|post_draw']:JSON.stringify({
+   marks:[{horse:'試験馬A',mark:'○'},{horse:'試験馬B',mark:'◎'}],savedAt:'2026-10-10T03:00:00.000Z',track:'良'
+  }),
+  [base+stem+'|final']:JSON.stringify({
+   marks:{'試験馬A':'▲','試験馬B':'◎'},savedAt:'2026-10-11T01:00:00.000Z',track:'良'
+  })
+ });
+ const data=parsePortableMarkBackup(buildPortableMarkBackup(seed));
+ assert.deepEqual(data.records.map(r=>r.phase),['initial','post_draw','final']);
+ assert.deepEqual(data.records.map(r=>r.marks.find(m=>m.name==='試験馬A').mark),['◎','○','▲']);
+ const restored=storage();
+ assert.equal(importPortableMarkBackup(restored,buildPortableMarkBackup(seed)).imported,3);
+ assert.equal(JSON.parse(restored.getItem(base+stem)).marks['試験馬A'],'◎');
+ assert.equal(JSON.parse(restored.getItem(base+stem+'|post_draw')).marks['試験馬A'],'○');
+ assert.equal(JSON.parse(restored.getItem(base+stem+'|final')).marks['試験馬A'],'▲');
+ assert.equal(JSON.parse(restored.getItem('keiba-labo:mark-draft:v1:'+stem+'|final')).marks[0].mark,'▲');
+ for(const key of [base+stem,base+stem+'|post_draw',base+stem+'|final'])
+  assert.equal(JSON.parse(restored.getItem(key)).officialVerified,false);
+});
 test('import is local only and deletes official verification and number privileges',()=>{
  const dest=storage();
  const result=importPortableMarkBackup(dest,portable(),{importedAt:'2026-10-11T00:20:00.000Z'});
