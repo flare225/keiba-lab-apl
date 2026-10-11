@@ -98,7 +98,7 @@ test('login checks token parity without writing; saves only on explicit click an
  assert.equal(writes().length,2);
 });
 test('DB restore does not generate an additional revision',async()=>{
- const h=harness();await tick();
+ const h=harness({existing:true});await tick();
  await h.elements.get('ownerMarkLogin').click();await tick();
  const count=()=>h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length;
  assert.equal(count(),0);
@@ -144,7 +144,7 @@ test('restore refuses saved marks from a different race even when the phase matc
 
 test('restore aborts rather than overwriting an edit made during a slow DB response',async()=>{
  const h=harness({existing:true,onRead:async({current,calls})=>{
-  if(calls.filter(c=>c.url.startsWith('/v1/lab/user-marks?')).length>=2){
+  if(calls.filter(c=>c.url.startsWith('/v1/lab/user-marks?')).length>=1){
    current.state.marks[0].mark='▲';
   }
  }});await tick();
