@@ -8,7 +8,7 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
  const elements=new Map(ids.map(id=>[id,{
   hidden:false,disabled:false,value:'',textContent:'',handlers:{},
   addEventListener(event,fn){this.handlers[event]=fn;},
-  click(){return this.handlers.click?.();}
+  click(){if(id==='ownerMarkLogin')return elements.get('ownerMarkLoginRow').handlers.submit?.({preventDefault(){}});return this.handlers.click?.();}
  }]));
  const handlers={};
  const window={
