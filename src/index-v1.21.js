@@ -339,10 +339,10 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  manualRows.before(markSaveCard);
  const ownerMarkCard=document.createElement('div');ownerMarkCard.className='owner-mark-db';ownerMarkCard.id='ownerMarkDbControls';
  ownerMarkCard.innerHTML='<h3>印の正式DB保存・復元</h3>'+
- '<p class="notice">ブラウザ下書きと正式DBは別物です。本人認証が有効な場合のみ、印を変更するとサーバー経由で自動保存します。DBへ書き込んだ後、保存履歴の再照合に成功して初めて「DB保存済み」と表示します。</p>'+
+ '<p class="notice">ブラウザ下書きと正式DBは別物です。印を変更してもDBへは送信しません。「DBへ今すぐ保存」を押したときだけ送信し、保存履歴の再照合に成功して初めて「DB保存済み」と表示します。</p>'+
  '<p id="ownerMarkDbStatus" class="notice" role="status">DBの認証設定を確認中…</p>'+
- '<div id="ownerMarkLoginRow" class="controls" hidden><input id="ownerMarkPassword" type="password" autocomplete="current-password" placeholder="本人用パスフレーズ" aria-label="本人用パスフレーズ"/>'+
- '<button type="button" class="btn secondary" id="ownerMarkLogin">本人認証する</button></div>'+
+ '<form id="ownerMarkLoginRow" class="controls" method="post" action="/v1/lab/user-mark-session" autocomplete="on" hidden><input id="ownerMarkPassword" name="password" type="password" autocomplete="current-password" placeholder="本人用パスフレーズ" aria-label="本人用パスフレーズ" required/>'+
+ '<button type="submit" class="btn secondary" id="ownerMarkLogin">本人認証する</button></form>'+
  '<div class="controls"><button type="button" class="btn" id="ownerMarkSave" disabled>DBへ今すぐ保存</button>'+
  '<button type="button" class="btn secondary" id="ownerMarkRestore" disabled>DB保存済み印を復元</button>'+
  '<button type="button" class="btn secondary" id="ownerMarkLogout" hidden>ログアウト</button></div>'+
