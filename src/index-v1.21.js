@@ -10,6 +10,7 @@ import {mountMarkSaving} from './mark-save-client-v1.24.js';
 import {assignIndependentLaboMarks,buildIndependentLaboReview,renderIndependentLaboReview,mountIndependentLaboReview} from './labo-independent-review-v1.25.js';
 import {mountOwnerMarkSave} from './mark-owner-client-v1.25.js';
 import {MARK_EXPORT_PHASES,MARK_EXPORT_LABELS,MARK_EXPORT_CHOICES,parseRace,snapshot,readStored,collectSavedRaceMarks,formatBulkRaceMarks,mountBulkRaceMarkCopy} from './mark-bulk-export-v1.24.js';
+import {PORTABLE_MARK_BACKUP_KIND,PORTABLE_MARK_BACKUP_SCHEMA,TRACK as PORTABLE_TRACK,validDate,safeIso,raceId,normalizeRecord,buildPortableMarkBackup,parsePortableMarkBackup,importPortableMarkBackup,mountPortableMarkBackup} from './mark-portable-backup.js';
 export const VERSION='1.25.0';
 export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={}){
  const input=Number(budget),yen=Number.isFinite(input)&&input>=100?Math.floor(input/100)*100:0,clean=(Array.isArray(marks)?marks:[]).filter(x=>x&&(x.horseName||Number.isInteger(x.horseNo))&&['◎','○','▲','△','☆','注'].includes(x.mark)).slice(0,18).map(x=>({...x,horseName:(Number.isInteger(x.frameNo)?x.frameNo+'枠 ':'')+(Number.isInteger(x.horseNo)?x.horseNo+'番 ':'')+(x.horseName||'')})),by=m=>clean.filter(x=>x.mark===m).map(x=>x.horseName);
@@ -261,6 +262,17 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
  const collectSavedRaceMarks=${collectSavedRaceMarks.toString()};
  const formatBulkRaceMarks=${formatBulkRaceMarks.toString()};
  const mountBulkRaceMarkCopy=${mountBulkRaceMarkCopy.toString()};
+ const PORTABLE_MARK_BACKUP_KIND=${JSON.stringify(PORTABLE_MARK_BACKUP_KIND)};
+ const PORTABLE_MARK_BACKUP_SCHEMA=${PORTABLE_MARK_BACKUP_SCHEMA};
+ const TRACK=${JSON.stringify(PORTABLE_TRACK)};
+ const validDate=${validDate.toString()};
+ const safeIso=${safeIso.toString()};
+ const raceId=${raceId.toString()};
+ const normalizeRecord=${normalizeRecord.toString()};
+ const buildPortableMarkBackup=${buildPortableMarkBackup.toString()};
+ const parsePortableMarkBackup=${parsePortableMarkBackup.toString()};
+ const importPortableMarkBackup=${importPortableMarkBackup.toString()};
+ const mountPortableMarkBackup=${mountPortableMarkBackup.toString()};
  const homeRaceSummary=${homeRaceSummary.toString()},homeRaceState=${homeRaceState.toString()};const isD1ReadQuotaError=${isD1ReadQuotaError.toString()},nextD1QuotaReset=${nextD1QuotaReset.toString()};let homeRaceSequence=0,dbQuotaBlockedUntil=0;
  async function refreshHomeRace(){const seq=++homeRaceSequence,t=window.getLaboTarget?.(),title=document.getElementById('homeRaceTitle'),missing=document.getElementById('homeRaceMissing'),next=document.getElementById('homeRaceNext'),button=document.getElementById('homeRaceAction');if(!title)return;button.disabled=true;missing.textContent='保存状態を確認中…';next.textContent='';if(!t){title.textContent='対象レースを確認中';return;}title.textContent=t.date+' '+t.venue+t.raceNo+'R '+(t.raceName||'');if(Date.now()<dbQuotaBlockedUntil){missing.textContent='DBの1日読み取り上限に達しています。';next.textContent='日本時間9時の枠回復後に再確認してください。';button.dataset.homeView='race';button.disabled=false;return;}try{const track=document.getElementById('track')?.value||'',r=await fetch(api+'/v1/lab/race-ops?date='+encodeURIComponent(t.date)+'&venue='+encodeURIComponent(t.venue)+'&race_no='+t.raceNo+(track?'&track='+encodeURIComponent(track):'')),d=await r.json();if(seq!==homeRaceSequence)return;if(isD1ReadQuotaError(d?.error)){dbQuotaBlockedUntil=nextD1QuotaReset();missing.textContent='DBの1日読み取り上限に達しています。';next.textContent='保存済みデータは削除されていません。日本時間9時の枠回復後に確認してください。';button.dataset.homeView='race';button.disabled=false;return;}const summary=homeRaceSummary(homeRaceState(r.status,d));missing.textContent=summary.missing.length?summary.missing.join(' / '):'現在の保存状態では不足・未完了なし';next.textContent=summary.next;button.textContent=summary.phase==='initial'?'枠順前の比較へ':d.ok?'次の操作へ':'対象レースで再確認';button.dataset.homePhase=summary.phase||'';button.dataset.homeView=summary.view;button.disabled=false;}catch{if(seq===homeRaceSequence){missing.textContent='保存状態を確認できません';next.textContent='対象レースで再確認してください';button.dataset.homeView='race';button.disabled=false;}}}
  window.addEventListener('labo-target-change',refreshHomeRace);refreshHomeRace();
@@ -350,7 +362,15 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  '<div class="controls"><button type="button" class="btn secondary" id="copyRaceDayMarks">選択日の全レース印をコピー</button>'+
  '<button type="button" class="btn secondary" id="copyAllRaceMarks">保存済み全レース印をコピー</button></div>'+
  '<p id="bulkMarkExportStatus" role="status" class="notice">この端末に保存した印だけをコピーします。DBへの保存・AIの学習は行いません。</p>'+
- '<textarea hidden readonly id="bulkMarkExportText" rows="10" aria-label="レース別の全予想印"></textarea>';
+ '<textarea hidden readonly id="bulkMarkExportText" rows="10" aria-label="レース別の全予想印"></textarea>'+
+ '<details><summary>全レース印のJSONバックアップ・復元（DBとは別）</summary>'+
+ '<p>JSONバックアップをコピーしておけば別の端末で復元できます。取り込んだ印は端末の下書きであり、公式枠順照合・DB保存・レース前LOCKの証拠にはなりません。</p>'+
+ '<button type="button" class="btn secondary" id="copyPortableMarkBackup">全レースJSONバックアップをコピー</button>'+
+ '<label for="portableMarkBackupText">コピーしたJSONを復元する場合はここに貼り付け</label>'+
+ '<textarea id="portableMarkBackupText" rows="9" aria-label="レース印のJSONバックアップ"></textarea>'+
+ '<label><input type="checkbox" id="portableMarkBackupOverwrite"/>既存の端末印を上書きする（通常はオフ）</label>'+
+ '<button type="button" class="btn secondary" id="restorePortableMarkBackup">この端末に印を復元</button>'+
+ '<p id="portableMarkBackupStatus" role="status" class="notice">通常の一括コピーは閲覧用、JSONは復元用です。復元した印は自動でDB送信しません。</p></details>';
  manualRows.before(bulkMarksPanel);
  const auditReport=document.getElementById('laboAuditReport');
  function publishAuditCards(data,{inline=false}={}){
@@ -467,6 +487,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  mountTicketBuilder({document,window,api,getRace:()=>window.getLaboTarget?.(),getMarks:()=>marks(),verifyRoster:verifiedOfficialRoster,WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip,renderTicketSelectionMatrix});
  window.addEventListener('labo-target-change',targetChanged);targetChanged();
  mountBulkRaceMarkCopy({document,window,persistCurrent:()=>{saveInline();saveDraft();}});
+ mountPortableMarkBackup({document,window,persistCurrent:()=>{saveInline();saveDraft();}});
  function applyServerMarks(revision,c){
   if(!revision||phaseInput.value!==revision.phase||!Array.isArray(revision.entries))throw Error('レースと段階を再確認してください。');
   const choices=new Map();
@@ -494,7 +515,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
 })();
 </script>`;
 export default{async fetch(request,env,ctx){
- if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view','verified-jra-roster-number-overlay','budget-safe-allocation','formation-ticket-builder-8-types','readable-mark-audit-cards','explicit-missing-integrated-ranks','independent-labo-reference-marks','server-authenticated-user-marks-save','same-origin-mark-audit-proxy','six-tab-mobile-nav','single-roster-bet-matrix','manual-official-audit','workout-provenance-status','netkeiba-workout-reference-links','one-tap-workout-impressions','fixed-six-sibling-mobile-nav','verified-mark-revision-status','mark-save-authentication-pending','multi-race-marks-bulk-copy','mark-three-way-save-status','saudi-rc-selectable','official-marks-inline-all-phases']},{headers:{'cache-control':'no-store'}});
+ if(new URL(request.url).pathname==='/health')return Response.json({ok:true,service:'keiba-lab-app',version:VERSION,features:['touch-friendly-global-styles','precard-mark-db-preview','ireland-default-target','full-runner-initial-comparison','no-source-fetch-on-mark-change','expected-roster-inline-marks','browser-local-initial-marks','vertical-runner-comparison-cards','phase-draft-carryover','formal-card-gate-visible','expected-history-coverage-visible','learning-readiness-visible','separate-system-information-view','verified-jra-roster-number-overlay','budget-safe-allocation','formation-ticket-builder-8-types','readable-mark-audit-cards','explicit-missing-integrated-ranks','independent-labo-reference-marks','server-authenticated-user-marks-save','same-origin-mark-audit-proxy','six-tab-mobile-nav','single-roster-bet-matrix','manual-official-audit','workout-provenance-status','netkeiba-workout-reference-links','one-tap-workout-impressions','fixed-six-sibling-mobile-nav','verified-mark-revision-status','mark-save-authentication-pending','multi-race-marks-bulk-copy','portable-multi-race-marks-backup-and-restore','mark-three-way-save-status','saudi-rc-selectable','official-marks-inline-all-phases']},{headers:{'cache-control':'no-store'}});
  const r=await app.fetch(request,env,ctx);if(!r.ok||!r.headers.get('content-type')?.includes('text/html'))return r;
  let html=await r.text();
  html=html.replace(/<section id="home" class="active">([\s\S]*?)<\/section>/,(_,content)=>'<section id="home" class="active"><div class="section-title">対象レース</div><div class="card"><h2 id="homeRaceTitle" class="section-title">対象レースを確認中</h2><p class="notice"><b>不足・未完了：</b><span id="homeRaceMissing">確認中…</span></p><p><b>次にすること：</b><span id="homeRaceNext"></span></p><button type="button" class="btn" id="homeRaceAction" data-home-view="race" disabled>次の操作へ</button></div><div class="card"><h2 class="section-title">現在は予想の判断補助</h2><p>過去走を使った参考比較ができます。予想精度はまだ検証できていません。</p><details><summary>評価できていない材料</summary><p>脚質・展開への適合と追い切りは参考指数に未反映です。未取得の馬場・通過順などは各馬の不足情報で確認できます。</p></details></div><div class="section-title">今週の重賞を選ぶ</div><div class="card"><div class="controls" id="raceQuickPick"><button type="button" class="btn secondary" data-race-date="2026-10-10">サウジアラビアRC（10/10）</button><button type="button" class="btn secondary" data-race-date="2026-10-11">アイルランドT（10/11）</button></div><p class="notice">レースを切り替えると馬名一覧と印の下書きも切り替わります。公式枠番は保存監査を通った場合のみ正式表示します。</p></div><div class="section-title">比較して予想を組み立てる</div><div class="card"><div class="controls"><button type="button" class="btn" data-home-view="marks">初期印・DB比較</button><button type="button" class="btn secondary" data-home-view="race">対象レース・馬場</button><button type="button" class="btn secondary" data-home-view="history">履歴・回顧</button></div></div><div class="section-title">学習データの蓄積</div><div class="card"><p id="homeLearning" role="status" class="notice">保存済みの学習データを確認中…</p><p id="homeValidation" class="notice">検証状況を確認中…</p><p id="homeCollection" class="notice"></p><p id="homeLearningUpdated" class="expected-inline-note"></p><div class="controls"><button type="button" class="btn secondary" id="refreshHomeLearning">学習状況を更新</button><a href="https://keiba-lab-api.sekai-no-bancyou.workers.dev/lab/work-progress" target="_blank" rel="noopener">補完待ち・詳しい進捗</a></div></div></section><section id="system" aria-labelledby="systemTitle"><div class="controls"><button type="button" class="btn secondary" id="closeSystem">ホームへ戻る</button></div><h2 id="systemTitle" tabindex="-1" class="section-title">システム情報</h2>'+content+'</section>');
