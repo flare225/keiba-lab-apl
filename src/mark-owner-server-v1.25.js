@@ -1,5 +1,6 @@
 import {createHmac,createHash,timingSafeEqual} from 'node:crypto';
 const UPSTREAM='https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/user-marks';
+const TOKEN_CHECK='https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/user-mark-token-check';
 const COOKIE='labo_owner_marks_v1';
 const MARKS=new Set(['◎','○','▲','△','☆','注','消']);
 const PHASES=new Set(['initial','post_draw','final']);
@@ -58,7 +59,7 @@ function sanitize(body){
  return {date,venue,raceNo,phase:body.phase,...(body.track?{track:body.track}:{}),marks,confirm:'SAVE'};
 }
 async function readJSON(resp){if(!(resp.headers.get('content-type')||'').includes('json'))throw Error('保存APIがJSONを返しませんでした');return resp.json();}
-export async function handleOwnerSession(req,res,env=process.env,stamp=now()){
+export async function handleOwnerSession(req,res,env=process.env,stamp=now(),fetcher=fetch){
  if(req.method==='GET'){const configuration=configurationStatus(env),configured=Object.values(configuration).every(Boolean);return output(res,200,{ok:true,configured,configuration,authenticated:configured&&verifyOwnerSession(req,env.LABO_MARK_SESSION_SECRET,stamp),storage:'Cloudflare D1 via server authenticated proxy'});}
  if(req.method==='DELETE'){
   if(!sameOrigin(req))return output(res,403,{ok:false,error:'同一画面から操作してください。'});
@@ -68,6 +69,22 @@ export async function handleOwnerSession(req,res,env=process.env,stamp=now()){
  if(req.method!=='POST')return output(res,405,{ok:false,error:'操作に対応していません。'});
  if(!sameOrigin(req))return output(res,403,{ok:false,error:'同一画面から操作してください。'});
  if(!cfg(env))return output(res,503,{ok:false,error:'DB保存用の管理設定が未完了です。運営者によるサーバー認証・DB接続設定が必要です。'});
+ if(req.body?.action==='check-worker-write-token'){
+  if(!verifyOwnerSession(req,env.LABO_MARK_SESSION_SECRET,stamp))
+   return output(res,401,{ok:false,error:'保存トークン確認には本人認証が必要です。'});
+  try{
+   const response=await fetcher(TOKEN_CHECK,{method:'GET',redirect:'error',signal:AbortSignal.timeout(12000),
+    headers:{authorization:'Bearer '+env.LABO_MARK_DB_WRITE_TOKEN}});
+   const answer=await readJSON(response);
+   if(response.ok&&answer?.tokenMatch===true)
+    return output(res,200,{ok:true,workerWriteTokenMatch:true,writeReady:true,mode:'no-write'});
+   if(response.status===401||response.status===503)
+    return output(res,200,{ok:true,workerWriteTokenMatch:false,writeReady:answer?.writeReady===true,mode:'no-write'});
+   return output(res,502,{ok:false,error:'Cloudflare保存トークンの確認応答が不明です。DBへの書き込みはしていません。'});
+  }catch{
+   return output(res,502,{ok:false,error:'Cloudflare保存トークンを確認できません。DBへの書き込みはしていません。'});
+  }
+ }
  const password=req.body?.passphrase;
  if(typeof password!=='string'||password.length>300||!equal(password,env.LABO_MARK_OWNER_PASSPHRASE))
   return output(res,401,{ok:false,error:'認証情報を確認してください。'});
