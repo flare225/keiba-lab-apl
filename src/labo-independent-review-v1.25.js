@@ -64,7 +64,8 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
    status.textContent='JRA正式出馬表を読み込み中。馬名と馬番がそろってからLABO自身の評価を取得します。';
    content.textContent='';last=null;return;
   }
-  const t=c.target,track=c.state.track||null;currentKey=key(t);
+  const t=c.target,track=c.state.track||null,rosterStamp=JSON.stringify(c.state.roster);
+  currentKey=key(t);
   refresh.disabled=true;status.textContent='LABO自身が全馬の過去走を参考評価中…（自分の印は計算に使いません）';
   try{
    // Legacy comparison requires a mark-shaped input. This dummy hint is NOT the user's selection;
@@ -73,7 +74,14 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
     body:JSON.stringify({date:t.date,venue:t.venue,raceNo:Number(t.raceNo),phase:'initial',...(track?{track}:{}),
      marks:[{horseName:c.state.roster[0],mark:'注'}]})});
    const data=await response.json();
-   if(n!==request||key(getCurrent()?.target)!==currentKey)return;
+   // A result calculated for another track assumption or roster is stale even
+   // when the race key is unchanged. Do not let it overwrite new decisions.
+   const active=getCurrent();
+   if(n!==request||!active||key(active.target)!==currentKey||
+      (active.state.track||null)!==track||active.state.rosterVerified!==true||
+      JSON.stringify(active.state.roster)!==rosterStamp)return;
+   if(track&&data?.assessment?.trackAssumption&&data.assessment.trackAssumption!==track)
+    throw Error('取得したLABO評価の馬場想定が現在の条件と一致しません。');
    if(!response.ok||!data.ok)throw Error(data.error||'全馬の参考評価を取得できません。');
    last=data;const review=buildIndependentLaboReview(data,getCurrent().state.marks,getCurrent().state.rosterNumbers,getCurrent().state.roster);
    content.innerHTML=renderIndependentLaboReview(review);
@@ -82,10 +90,18 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
   finally{if(n===request)refresh.disabled=false;}
  }
  refresh.addEventListener('click',()=>{void load();});
- window.addEventListener('labo-target-change',()=>{++request;last=null;currentKey='';content.textContent='';status.textContent='新しいレースの出馬表を確認中…';});
+ function discardPending(message){
+  ++request;last=null;currentKey='';content.textContent='';
+  refresh.disabled=false;status.textContent=message;
+ }
+ window.addEventListener('labo-target-change',()=>{
+  discardPending('新しいレースの出馬表を確認中…');
+ });
  window.addEventListener('labo-roster-ready',()=>{void load();});
  window.addEventListener('labo-marks-changed',render);
  const track=document.getElementById('markTrack');
- track?.addEventListener('change',()=>{status.textContent='馬場想定を変更しました。LABO再精査で新しい条件の評価を取得してください。';last=null;content.textContent='';});
+ track?.addEventListener('change',()=>{
+  discardPending('馬場想定を変更しました。古いLABO評価を破棄しました。新しい馬場で再精査してください。');
+ });
  const current=getCurrent();if(current?.state?.rosterVerified)void load();
 }
