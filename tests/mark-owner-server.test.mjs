@@ -131,3 +131,39 @@ test('public readiness GET reports per-setting booleans without exposing secret 
   assert.equal(JSON.stringify(result.values.body).includes(envUnderTest[key]),false);
  }
 });
+
+test('owner can check Worker token parity without writing or revealing secrets',async()=>{
+ const stamp=12000,cookie='labo_owner_marks_v1='+createOwnerSession(env.LABO_MARK_SESSION_SECRET,stamp);
+ const request=req('POST',{action:'check-worker-write-token'},cookie);
+ const calls=[];
+ const fake=async(url,options)=>{
+  calls.push({url,options});
+  return new Response(JSON.stringify({ok:true,tokenMatch:true,writeReady:true,mode:'no-write'}),{
+   status:200,headers:{'content-type':'application/json'}
+  });
+ };
+ const result=response();
+ await handleOwnerSession(request,result.res,env,stamp+1,fake);
+ assert.equal(result.values.code,200);
+ assert.equal(result.values.body.workerWriteTokenMatch,true);
+ assert.equal(result.values.body.mode,'no-write');
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].options.method,'GET');
+ assert.equal(calls[0].options.headers.authorization,'Bearer '+env.LABO_MARK_DB_WRITE_TOKEN);
+ assert.equal(JSON.stringify(result.values.body).includes(env.LABO_MARK_DB_WRITE_TOKEN),false);
+});
+test('token parity check requires owner session and treats mismatch as a safe result',async()=>{
+ const unauthorized=response();
+ await handleOwnerSession(req('POST',{action:'check-worker-write-token'}),unauthorized.res,env,13000,async()=>{throw Error('must not call Worker')});
+ assert.equal(unauthorized.values.code,401);
+ const stamp=14000,cookie='labo_owner_marks_v1='+createOwnerSession(env.LABO_MARK_SESSION_SECRET,stamp);
+ const result=response();
+ await handleOwnerSession(req('POST',{action:'check-worker-write-token'},cookie),result.res,env,stamp+1,async()=>new Response(
+  JSON.stringify({ok:false,tokenMatch:false,writeReady:true,mode:'no-write'}),
+  {status:401,headers:{'content-type':'application/json'}}
+ ));
+ assert.equal(result.values.code,200);
+ assert.equal(result.values.body.ok,true);
+ assert.equal(result.values.body.workerWriteTokenMatch,false);
+ assert.equal(JSON.stringify(result.values.body).includes(env.LABO_MARK_DB_WRITE_TOKEN),false);
+});
