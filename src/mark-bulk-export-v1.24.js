@@ -29,7 +29,7 @@ export function snapshot(data,race,phase,source){
  return{...race,phase,source,marks:valid,officialVerified:verified,deviceSavedAt:typeof data.savedAt==='string'?data.savedAt:null,track:data.track||''};
 }
 export function readStored(storage,key){try{return JSON.parse(storage.getItem(key)||'null');}catch{return null;}}
-export function collectSavedRaceMarks(storage,{date=null}={}){
+export function collectSavedRaceMarks(storage,{date=null,allPhases=false}={}){
  const entries=new Map();
  const prefix='keiba-labo:expected-marks:v1:';
  const draftPrefix='keiba-labo:mark-draft:v1:';
@@ -63,12 +63,17 @@ export function collectSavedRaceMarks(storage,{date=null}={}){
   const priority={inline:3,draft:2,frozen:1};
   if(!prior||priority[kind]>priority[prior.kind])entries.set(id,{kind,record});
  }
+ // The readable clipboard view intentionally picks the latest phase per race.
+ // JSON backups must preserve initial, post-draw, and final independently:
+ // collapsing phases would silently erase the pre-race decision history.
  const perRace=new Map();
  for(const {record} of entries.values()){
   const id=[record.date,record.venue,record.raceNo].join('|'),old=perRace.get(id);
   if(!old||MARK_EXPORT_PHASES.indexOf(record.phase)>MARK_EXPORT_PHASES.indexOf(old.phase))perRace.set(id,record);
  }
- return [...perRace.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.venue.localeCompare(b.venue,'ja')||a.raceNo-b.raceNo);
+ const records=allPhases?[...entries.values()].map(x=>x.record):[...perRace.values()];
+ return records.sort((a,b)=>a.date.localeCompare(b.date)||a.venue.localeCompare(b.venue,'ja')||
+  a.raceNo-b.raceNo||MARK_EXPORT_PHASES.indexOf(a.phase)-MARK_EXPORT_PHASES.indexOf(b.phase));
 }
 export function formatBulkRaceMarks(records,{scope='全保存レース'}={}){
  if(!Array.isArray(records)||!records.length)return'';
