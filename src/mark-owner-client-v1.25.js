@@ -46,15 +46,16 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
     'DB正式保存：本人認証待ち。管理者キーではなく、登録した本人用パスフレーズを入力してください。');
   }catch(e){configured=false;authenticated=false;workerWriteTokenMatch=false;msg('DB正式保存：接続確認失敗。端末内の下書き・コピーを利用してください。');}
  }
- login.addEventListener('click',async()=>{
+ loginRow.addEventListener('submit',async(event)=>{
+  event.preventDefault();
   if(!configured||working)return;
-  const passphrase=password.value;password.value='';working=true;update();msg('本人認証中…');
+  const passphrase=password.value;working=true;update();msg('本人認証中…');
   try{
    const r=await fetcher('/v1/lab/user-mark-session',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({passphrase})});
    const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'認証できません。');
    authenticated=true;working=false;await checkWorkerToken();
   }catch(e){authenticated=false;workerWriteTokenMatch=false;msg('本人認証できません：'+e.message);}
-  finally{working=false;update();}
+  finally{password.value='';working=false;update();}
  });
  logout.addEventListener('click',async()=>{
   if(working)return;
