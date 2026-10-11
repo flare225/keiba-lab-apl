@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import app,{isD1ReadQuotaError,nextD1QuotaReset} from '../src/index-v1.21.js';
+import app,{isD1ReadQuotaError,nextD1QuotaReset,HOME_PROGRESS_CACHE_MS,shouldRefreshHomeProgress} from '../src/index-v1.21.js';
 
 test('only actual Cloudflare D1 free daily read-limit errors activate the quota gate',()=>{
  assert.equal(isD1ReadQuotaError("D1_ERROR: Your account has exceeded D1's free tier daily row read limit. Upgrade or wait until tomorrow"),true);
@@ -29,4 +29,18 @@ test('home identifies each failed status API and recognizes the D1 read quota in
  assert.match(html,/USER MARK認証/);
  assert.match(html,/DB上限 · 一部取得/);
  assert.match(html,/exceeded D1/);
+});
+
+test('home learning progress reuses a short local snapshot instead of querying D1 on every return',()=>{
+ assert.equal(HOME_PROGRESS_CACHE_MS,5*60*1000);
+ assert.equal(shouldRefreshHomeProgress(0,1000,0),true);
+ assert.equal(shouldRefreshHomeProgress(1000,1001,0),false);
+ assert.equal(shouldRefreshHomeProgress(1000,301000,0),true);
+ assert.equal(shouldRefreshHomeProgress(1000,301000,400000),false);
+});
+test('home persists the daily D1 block locally and exposes a manual refresh',async()=>{
+ const html=await(await app.fetch(new Request('https://example.com/'))).text();
+ assert.match(html,/keiba-lab-d1-quota-blocked-until/);
+ assert.match(html,/keiba-lab-home-progress-v1/);
+ assert.match(html,/refreshHomeLearning\(true\)/);
 });
