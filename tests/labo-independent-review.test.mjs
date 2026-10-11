@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import app,{VERSION} from '../src/index-v1.21.js';
-import {assignIndependentLaboMarks,buildIndependentLaboReview,renderIndependentLaboReview} from '../src/labo-independent-review-v1.25.js';
+import {assignIndependentLaboMarks,buildIndependentLaboReview,renderIndependentLaboReview,mountIndependentLaboReview} from '../src/labo-independent-review-v1.25.js';
 const valid=(name,rank,history=4,tied=1)=>({horseName:name,referenceRank:rank,tiedCount:tied,assessment:{available:true,validFinishRows:history,evidenceScore:80-rank}});
 const fixture={
  ok:true,race:{date:'2026-10-11'},assessment:{runnerPool:4,scoredRunners:4,trackAssumption:'良',modelVersion:'existing-safe-core',
@@ -64,4 +64,60 @@ test('independent rows must match the official roster and expose overlooked top-
  thin.assessment.allRunners[1].assessment.validFinishRows=1;
  const parsed=buildIndependentLaboReview(thin);
  assert.match(renderIndependentLaboReview(parsed),/有効着順3走未満/);
+});
+
+test('late responses for a previous track condition must never overwrite new LABO evidence',async()=>{
+ const nodes=new Map(['independentLaboReview','independentLaboReviewStatus','independentLaboReviewContent','independentLaboReviewRefresh','markTrack']
+  .map(id=>[id,{id,textContent:'',innerHTML:'',disabled:false,events:{},
+   addEventListener(type,fn){this.events[type]=fn;},
+   click(){this.events.click?.();}}]));
+ const events=new Map();
+ const window={addEventListener(name,fn){events.set(name,fn);}};
+ const current={target:{date:'2026-10-11',venue:'東京',raceNo:11},state:{
+  track:'良',rosterVerified:true,roster:['馬A','馬B','馬C','馬D'],
+  rosterNumbers:{},marks:[{horseName:'馬A',mark:'◎'}]}};
+ const pending=[],fetcher=async(url,opts)=>new Promise(resolve=>pending.push({
+  url,body:JSON.parse(opts.body),reply:data=>resolve({ok:true,json:async()=>data})
+ }));
+ mountIndependentLaboReview({document:{getElementById:id=>nodes.get(id)},window,api:'https://example.test',
+  getCurrent:()=>current,fetcher});
+ assert.equal(pending.length,1);
+ assert.equal(pending[0].body.track,'良');
+ current.state.track='重';
+ nodes.get('markTrack').events.change();
+ assert.match(nodes.get('independentLaboReviewStatus').textContent,/古いLABO評価を破棄/);
+ assert.equal(nodes.get('independentLaboReviewRefresh').disabled,false);
+ pending[0].reply(structuredClone(fixture));
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(nodes.get('independentLaboReviewContent').innerHTML,'');
+ assert.match(nodes.get('independentLaboReviewStatus').textContent,/古いLABO評価を破棄/);
+
+ nodes.get('independentLaboReviewRefresh').click();
+ assert.equal(pending.length,2);
+ assert.equal(pending[1].body.track,'重');
+ const changed=structuredClone(fixture);changed.assessment.trackAssumption='重';
+ pending[1].reply(changed);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.match(nodes.get('independentLaboReviewContent').innerHTML,/想定馬場：重/);
+ assert.equal(nodes.get('independentLaboReviewRefresh').disabled,false);
+});
+test('switching races while a LABO review is in flight releases the refresh control',async()=>{
+ const ids=['independentLaboReview','independentLaboReviewStatus','independentLaboReviewContent','independentLaboReviewRefresh','markTrack'];
+ const nodes=new Map(ids.map(id=>[id,{textContent:'',innerHTML:'',disabled:false,
+  addEventListener(){}}]));
+ const handlers={};
+ const window={addEventListener(n,fn){handlers[n]=fn;}};
+ const current={target:{date:'2026-10-11',venue:'東京',raceNo:11},state:{
+  rosterVerified:true,roster:['馬A','馬B','馬C','馬D'],rosterNumbers:{},marks:[],track:'良'}};
+ let resolveResponse;
+ mountIndependentLaboReview({document:{getElementById:id=>nodes.get(id)},window,
+  api:'https://example.test',getCurrent:()=>current,
+  fetcher:()=>new Promise(resolve=>{resolveResponse=resolve;})});
+ assert.equal(nodes.get('independentLaboReviewRefresh').disabled,true);
+ current.target={date:'2026-10-11',venue:'京都',raceNo:11};
+ handlers['labo-target-change']();
+ assert.equal(nodes.get('independentLaboReviewRefresh').disabled,false);
+ resolveResponse({ok:true,json:async()=>structuredClone(fixture)});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(nodes.get('independentLaboReviewContent').innerHTML,'');
 });
