@@ -103,3 +103,31 @@ test('readback does not certify another race or changed explicit track assumptio
  assert.equal(result.values.code,502);
  assert.equal(result.values.body.saveMayHaveSucceeded,true);
 });
+
+
+test('public readiness GET reports per-setting booleans without exposing secret values',async()=>{
+ const boundaryEnv={
+  LABO_MARK_OWNER_PASSPHRASE:'o'.repeat(24),
+  LABO_MARK_SESSION_SECRET:'s'.repeat(32),
+  LABO_MARK_DB_WRITE_TOKEN:'w'.repeat(24)
+ };
+ const ready=response();
+ await handleOwnerSession(req('GET'),ready.res,boundaryEnv,1000);
+ assert.deepEqual(ready.values.body.configuration,{
+  ownerPassphraseReady:true,sessionSecretReady:true,writeTokenReady:true
+ });
+ assert.equal(ready.values.body.configured,true);
+ for(const [key,flag,length] of [
+  ['LABO_MARK_OWNER_PASSPHRASE','ownerPassphraseReady',23],
+  ['LABO_MARK_SESSION_SECRET','sessionSecretReady',31],
+  ['LABO_MARK_DB_WRITE_TOKEN','writeTokenReady',23]
+ ]){
+  const envUnderTest={...boundaryEnv,[key]:'x'.repeat(length)};
+  const result=response();
+  await handleOwnerSession(req('GET'),result.res,envUnderTest,1000);
+  assert.equal(result.values.body.configured,false);
+  assert.equal(result.values.body.configuration[flag],false);
+  assert.equal(Object.values(result.values.body.configuration).filter(Boolean).length,2);
+  assert.equal(JSON.stringify(result.values.body).includes(envUnderTest[key]),false);
+ }
+});
