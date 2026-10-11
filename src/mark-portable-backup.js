@@ -23,7 +23,7 @@ export function normalizeRecord(x){
   track:x.track||'',originalDeviceSavedAt:safeIso(x.originalDeviceSavedAt),marks};
 }
 export function buildPortableMarkBackup(storage,{date=null,now=new Date().toISOString()}={}){
- const records=collectSavedRaceMarks(storage,{date}).map(r=>normalizeRecord({...r,originalDeviceSavedAt:r.deviceSavedAt}));
+ const records=collectSavedRaceMarks(storage,{date,allPhases:true}).map(r=>normalizeRecord({...r,originalDeviceSavedAt:r.deviceSavedAt}));
  if(!records.length)throw Error('バックアップできる予想印がありません。');
  return JSON.stringify({kind:PORTABLE_MARK_BACKUP_KIND,schema:PORTABLE_MARK_BACKUP_SCHEMA,
   exportedAt:now,description:'端末下書きの持ち運び用。DB保存・JRA公式枠順・予想時刻の証明ではありません。',
