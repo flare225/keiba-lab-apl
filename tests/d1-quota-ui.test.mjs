@@ -19,3 +19,15 @@ test('home gives explicit quota explanation without claiming DB marks are saved'
  assert.match(html,/Date\.now\(\)<dbQuotaBlockedUntil/);
  for(const [,js] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(js);
 });
+
+test('home identifies each failed status API and recognizes the D1 read quota in its visible badge',async()=>{
+ const html=await(await app.fetch(new Request('https://example.com/'))).text();
+ assert.match(html,/Promise\.allSettled/);
+ assert.match(html,/デプロイ確認/);
+ assert.match(html,/Cron状態/);
+ assert.match(html,/対象レース状態/);
+ assert.match(html,/USER MARK認証/);
+ assert.match(html,/DB上限 · 一部取得/);
+ assert.match(html,/exceeded D1/);
+ for(const [,js] of html.matchAll(/<script[^>]*>([\\s\\S]*?)<\\/script>/g))new Script(js);
+});
