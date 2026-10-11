@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import {findRememberedRaceIndex,serializeRacePreference,markPhaseStorageKey,readRememberedMarkPhase} from '../src/mark-view-preferences.js';
 
 const races=[
@@ -25,4 +26,10 @@ test('keeps mark phases isolated per race and restores a known phase only',()=>{
  assert.notEqual(markPhaseStorageKey(races[0]),markPhaseStorageKey(races[1]));
  assert.equal(readRememberedMarkPhase('final'),'final');
  assert.equal(readRememberedMarkPhase('bad-phase'),'initial');
+});
+
+test('inlines mark phase storage dependencies into browser code',async()=>{
+ const source=await readFile(new URL('../src/index-v1.21.js',import.meta.url),'utf8');
+ assert.ok(source.includes('const MARK_PHASE_STORAGE_PREFIX=${JSON.stringify(MARK_PHASE_STORAGE_PREFIX)};'));
+ assert.ok(source.includes('const markPhaseStorageKey=${markPhaseStorageKey.toString()};'));
 });
