@@ -6,7 +6,12 @@ const PHASES=new Set(['initial','post_draw','final']);
 const DAY=/^20\d{2}-\d{2}-\d{2}$/;
 const now=()=>Date.now();
 const output=(res,status,value)=>res.status(status).setHeader('cache-control','no-store').json(value);
-const cfg=e=>Boolean(e.LABO_MARK_OWNER_PASSPHRASE?.length>=24&&e.LABO_MARK_SESSION_SECRET?.length>=32&&e.LABO_MARK_DB_WRITE_TOKEN?.length>=24);
+const configurationStatus=e=>({
+ ownerPassphraseReady:typeof e.LABO_MARK_OWNER_PASSPHRASE==='string'&&e.LABO_MARK_OWNER_PASSPHRASE.length>=24,
+ sessionSecretReady:typeof e.LABO_MARK_SESSION_SECRET==='string'&&e.LABO_MARK_SESSION_SECRET.length>=32,
+ writeTokenReady:typeof e.LABO_MARK_DB_WRITE_TOKEN==='string'&&e.LABO_MARK_DB_WRITE_TOKEN.length>=24
+});
+const cfg=e=>Object.values(configurationStatus(e)).every(Boolean);
 export function sameOrigin(req){
  try{
   const origin=req.headers?.origin;
@@ -54,7 +59,7 @@ function sanitize(body){
 }
 async function readJSON(resp){if(!(resp.headers.get('content-type')||'').includes('json'))throw Error('保存APIがJSONを返しませんでした');return resp.json();}
 export async function handleOwnerSession(req,res,env=process.env,stamp=now()){
- if(req.method==='GET')return output(res,200,{ok:true,configured:cfg(env),authenticated:cfg(env)&&verifyOwnerSession(req,env.LABO_MARK_SESSION_SECRET,stamp),storage:'Cloudflare D1 via server authenticated proxy'});
+ if(req.method==='GET'){const configuration=configurationStatus(env),configured=Object.values(configuration).every(Boolean);return output(res,200,{ok:true,configured,configuration,authenticated:configured&&verifyOwnerSession(req,env.LABO_MARK_SESSION_SECRET,stamp),storage:'Cloudflare D1 via server authenticated proxy'});}
  if(req.method==='DELETE'){
   if(!sameOrigin(req))return output(res,403,{ok:false,error:'同一画面から操作してください。'});
   res.setHeader('set-cookie',COOKIE+'=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict');
