@@ -157,7 +157,8 @@ test('restore refuses saved marks from a different race even when the phase matc
 
 test('restore aborts rather than overwriting an edit made during a slow DB response',async()=>{
  const h=harness({existing:true,onRead:async({current,calls})=>{
-  if(calls.filter(c=>c.url.startsWith('/v1/lab/user-marks?')).length>=1){
+  // The first history request is the login reconciliation; edit only during the later restore request.
+  if(calls.filter(c=>c.url.startsWith('/v1/lab/user-marks?')).length>=2){
    current.state.marks[0].mark='▲';
   }
  }});await tick();
