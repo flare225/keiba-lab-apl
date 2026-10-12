@@ -79,23 +79,36 @@ test('unconfigured auth never sends formal DB writes',async()=>{
  assert.equal(h.calls.filter(c=>c.url.includes('/save')).length,0);
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/未完了/);
 });
-test('login checks token parity without writing; saves only on explicit click and edits revoke saved label',async()=>{
+test('login checks token parity without writing, then autosaves a local draft after DB confirms no revision',async()=>{
  const h=harness();await tick();
  h.elements.get('ownerMarkPassword').value='test-passphrase';
- await h.elements.get('ownerMarkLogin').click();await tick();
+ await h.elements.get('ownerMarkLogin').click();
  const writes=()=>h.calls.filter(c=>c.url==='/v1/lab/user-marks/save');
  assert.equal(writes().length,0);
- assert.match(h.elements.get('ownerMarkDbStatus').textContent,/DB書込なし/);
- await h.elements.get('ownerMarkSave').click();await tick();
+ assert.ok(h.calls.some(c=>c.url==='/v1/lab/user-mark-session'&&c.body?.action==='check-worker-write-token'));
+ await tick();
  assert.equal(writes().length,1);
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/DB保存済み・再照合成功/);
  h.current.state.marks[0].mark='▲';
  h.window.dispatchEvent(new Event('labo-marks-changed'));
- assert.match(h.elements.get('ownerMarkDbStatus').textContent,/DB未保存/);
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/自動保存/);
  await tick();
- assert.equal(writes().length,1);
+ assert.equal(writes().length,2);
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/DB保存済み・再照合成功/);
  await h.elements.get('ownerMarkSave').click();await tick();
  assert.equal(writes().length,2);
+});
+
+test('login never autosaves over a different existing DB revision',async()=>{
+ const h=harness({existing:true});
+ h.current.state.marks[0].mark='▲';
+ await tick();
+ await h.elements.get('ownerMarkLogin').click();await tick();
+ const writes=()=>h.calls.filter(c=>c.url==='/v1/lab/user-marks/save');
+ assert.equal(writes().length,0);
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/既存DB記録を上書きせず停止/);
+ await h.elements.get('ownerMarkSave').click();await tick();
+ assert.equal(writes().length,1);
 });
 test('DB restore does not generate an additional revision',async()=>{
  const h=harness({existing:true});await tick();
@@ -144,7 +157,8 @@ test('restore refuses saved marks from a different race even when the phase matc
 
 test('restore aborts rather than overwriting an edit made during a slow DB response',async()=>{
  const h=harness({existing:true,onRead:async({current,calls})=>{
-  if(calls.filter(c=>c.url.startsWith('/v1/lab/user-marks?')).length>=1){
+  // The first history request is the login reconciliation; edit only during the later restore request.
+  if(calls.filter(c=>c.url.startsWith('/v1/lab/user-marks?')).length>=2){
    current.state.marks[0].mark='▲';
   }
  }});await tick();
