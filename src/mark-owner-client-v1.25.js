@@ -65,7 +65,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
    configured=d.configured===true;authenticated=d.authenticated===true;update();
    if(authenticated){await checkWorkerToken();return;}
    msg(!configured?'DB正式保存：認証・サーバー接続設定が未完了。現在は端末内保存のみです。':
-    'DB正式保存：本人認証待ち。管理者キーではなく、登録した本人用パスフレーズを入力してください。');
+    'DB正式保存：初回の端末登録が必要です。本人用パスフレーズを一度入力すると、同じブラウザでは次回から入力不要です。');
   }catch(e){configured=false;authenticated=false;workerWriteTokenMatch=false;msg('DB正式保存：接続確認失敗。端末内の下書き・コピーを利用してください。');}
  }
  loginRow.addEventListener('submit',async(event)=>{
@@ -82,7 +82,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  logout.addEventListener('click',async()=>{
   if(working)return;
   try{await fetcher('/v1/lab/user-mark-session',{method:'DELETE',credentials:'same-origin'});}catch{}
-  authenticated=false;workerWriteTokenMatch=false;lastSaved='';if(timer!==null)clearTimeout(timer);timer=null;pendingSaves.clear();msg('ログアウトしました。DB正式保存は停止中です。');
+  authenticated=false;workerWriteTokenMatch=false;lastSaved='';if(timer!==null)clearTimeout(timer);timer=null;pendingSaves.clear();msg('この端末の登録を解除しました。再登録するまでDB正式保存は停止中です。');
  });
  const matchesRemote=(rev,body)=>{
   if(!rev||rev.phase!==body.phase||!Number.isInteger(rev.revisionNo)||rev.revisionNo<1)return false;
