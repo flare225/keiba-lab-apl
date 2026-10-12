@@ -347,12 +347,13 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  const ownerMarkCard=document.createElement('div');ownerMarkCard.className='owner-mark-db';ownerMarkCard.id='ownerMarkDbControls';
  ownerMarkCard.innerHTML='<h3>印の正式DB保存・復元</h3>'+
  '<p class="notice">ブラウザ下書きと正式DBは別物です。本人認証と保存トークン一致の確認後、DBに保存履歴がない印は自動保存します。印を変更すると少し待ってDBへ保存し、読み返し照合が成功した場合だけ「DB保存済み」と表示します。既存DB印と画面の印が異なる場合は自動上書きせず、復元または「DBへ今すぐ保存」を選べます。</p>'+
+ '<p class="notice">初回だけ本人用パスフレーズでこの端末を登録します。同じブラウザでは次回から入力不要です。登録は180日間保持し、アプリを開くたびに更新します。ブラウザのデータ削除・登録解除・180日間未使用の場合は再登録が必要です。</p>'+
  '<p id="ownerMarkDbStatus" class="notice" role="status">DBの認証設定を確認中…</p>'+
  '<form id="ownerMarkLoginRow" class="controls" method="post" action="/v1/lab/user-mark-session" autocomplete="on" hidden><input id="ownerMarkPassword" name="password" type="password" autocomplete="current-password" placeholder="本人用パスフレーズ" aria-label="本人用パスフレーズ" required/>'+
- '<button type="submit" class="btn secondary" id="ownerMarkLogin">本人認証する</button></form>'+
+ '<button type="submit" class="btn secondary" id="ownerMarkLogin">本人認証する（初回の端末登録）</button></form>'+
  '<div class="controls"><button type="button" class="btn" id="ownerMarkSave" disabled>DBへ今すぐ保存</button>'+
  '<button type="button" class="btn secondary" id="ownerMarkRestore" disabled>DB保存済み印を復元</button>'+
- '<button type="button" class="btn secondary" id="ownerMarkLogout" hidden>ログアウト</button></div>'+
+ '<button type="button" class="btn secondary" id="ownerMarkLogout" hidden>この端末の登録を解除</button></div>'+
  '<p class="notice">管理者用のDBキーをブラウザへ入力しないでください。DB保存済みでも、事前LOCKや学習モデル更新とは別工程です。</p>';
  manualRows.before(ownerMarkCard);
  const laboIndependentCard=document.createElement('div');laboIndependentCard.className='labo-review-card';
