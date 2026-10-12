@@ -2,6 +2,12 @@ import {createHmac,createHash,timingSafeEqual} from 'node:crypto';
 const UPSTREAM='https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/user-marks';
 const TOKEN_CHECK='https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/user-mark-token-check';
 const COOKIE='labo_owner_marks_v1';
+export const OWNER_DEVICE_DAYS=180;
+const DEVICE_SECONDS=OWNER_DEVICE_DAYS*24*3600;
+const DEVICE_MS=DEVICE_SECONDS*1000;
+function rememberDevice(res,secret,stamp){
+ res.setHeader('set-cookie',COOKIE+'='+createOwnerSession(secret,stamp)+'; Path=/; Max-Age='+DEVICE_SECONDS+'; HttpOnly; Secure; SameSite=Strict');
+}
 const MARKS=new Set(['◎','○','▲','△','☆','注','消']);
 const PHASES=new Set(['initial','post_draw','final']);
 const DAY=/^20\d{2}-\d{2}-\d{2}$/;
@@ -29,7 +35,7 @@ function cookieValue(req){
  const h=String(req.headers?.cookie||'');return h.split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1)||'';
 }
 export function createOwnerSession(secret,issued=now()){
- const data=Buffer.from(JSON.stringify({scope:'mark-save',exp:issued+8*3600000})).toString('base64url');
+ const data=Buffer.from(JSON.stringify({scope:'mark-save',exp:issued+DEVICE_MS})).toString('base64url');
  return data+'.'+mac(secret,data);
 }
 export function verifyOwnerSession(req,secret,stamp=now()){
@@ -37,7 +43,7 @@ export function verifyOwnerSession(req,secret,stamp=now()){
  const token=cookieValue(req),parts=token.split('.');
  if(parts.length!==2||parts[0].length>1000||!equal(parts[1],mac(secret,parts[0])))return false;
  try{const d=JSON.parse(Buffer.from(parts[0],'base64url').toString());
-  return d.scope==='mark-save'&&Number.isSafeInteger(d.exp)&&d.exp>stamp&&d.exp<stamp+9*3600000;
+  return d.scope==='mark-save'&&Number.isSafeInteger(d.exp)&&d.exp>stamp&&d.exp<=stamp+DEVICE_MS;
  }catch{return false;}
 }
 function sanitize(body){
@@ -60,7 +66,13 @@ function sanitize(body){
 }
 async function readJSON(resp){if(!(resp.headers.get('content-type')||'').includes('json'))throw Error('保存APIがJSONを返しませんでした');return resp.json();}
 export async function handleOwnerSession(req,res,env=process.env,stamp=now(),fetcher=fetch){
- if(req.method==='GET'){const configuration=configurationStatus(env),configured=Object.values(configuration).every(Boolean);return output(res,200,{ok:true,configured,configuration,authenticated:configured&&verifyOwnerSession(req,env.LABO_MARK_SESSION_SECRET,stamp),storage:'Cloudflare D1 via server authenticated proxy'});}
+ if(req.method==='GET'){
+  const configuration=configurationStatus(env),configured=Object.values(configuration).every(Boolean);
+  const authenticated=configured&&verifyOwnerSession(req,env.LABO_MARK_SESSION_SECRET,stamp);
+  // A valid existing device cookie can renew itself; anonymous requests never register a device.
+  if(authenticated)rememberDevice(res,env.LABO_MARK_SESSION_SECRET,stamp);
+  return output(res,200,{ok:true,configured,configuration,authenticated,deviceRememberDays:OWNER_DEVICE_DAYS,storage:'Cloudflare D1 via server authenticated proxy'});
+ }
  if(req.method==='DELETE'){
   if(!sameOrigin(req))return output(res,403,{ok:false,error:'同一画面から操作してください。'});
   res.setHeader('set-cookie',COOKIE+'=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict');
@@ -88,7 +100,7 @@ export async function handleOwnerSession(req,res,env=process.env,stamp=now(),fet
  const password=req.body?.passphrase;
  if(typeof password!=='string'||password.length>300||!equal(password,env.LABO_MARK_OWNER_PASSPHRASE))
   return output(res,401,{ok:false,error:'認証情報を確認してください。'});
- res.setHeader('set-cookie',COOKIE+'='+createOwnerSession(env.LABO_MARK_SESSION_SECRET,stamp)+'; Path=/; Max-Age=28800; HttpOnly; Secure; SameSite=Strict');
+ rememberDevice(res,env.LABO_MARK_SESSION_SECRET,stamp);
  return output(res,200,{ok:true,authenticated:true});
 }
 export async function handleOwnerMarkSave(req,res,fetcher=fetch,env=process.env,stamp=now()){

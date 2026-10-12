@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createOwnerSession,verifyOwnerSession,handleOwnerSession,handleOwnerMarkSave} from '../src/mark-owner-server-v1.25.js';
+import {createOwnerSession,verifyOwnerSession,handleOwnerSession,handleOwnerMarkSave,OWNER_DEVICE_DAYS} from '../src/mark-owner-server-v1.25.js';
 const env={LABO_MARK_OWNER_PASSPHRASE:'long-owner-private-password-0123456789',LABO_MARK_SESSION_SECRET:'another-super-long-session-key-with-entropy-987654321',LABO_MARK_DB_WRITE_TOKEN:'a-worker-write-token-from-server-env-only'};
 function req(method,body={},cookie='',origin='https://keiba-lab-apl.vercel.app'){
  return{method,body,headers:{host:'keiba-lab-apl.vercel.app',origin,cookie}};
@@ -33,7 +33,8 @@ test('owner session is signed, httpOnly, secure and CSRF origin-checked',async()
  const cookie=grant.values.headers['set-cookie'].split(';')[0];
  assert.match(grant.values.headers['set-cookie'],/HttpOnly; Secure; SameSite=Strict/);
  assert.equal(verifyOwnerSession(req('POST',{},cookie),env.LABO_MARK_SESSION_SECRET,1001),true);
- assert.equal(verifyOwnerSession(req('POST',{},cookie),env.LABO_MARK_SESSION_SECRET,1000+8*3600000),false);
+ assert.equal(verifyOwnerSession(req('POST',{},cookie),env.LABO_MARK_SESSION_SECRET,1000+24*3600000),true);
+ assert.equal(verifyOwnerSession(req('POST',{},cookie),env.LABO_MARK_SESSION_SECRET,1000+OWNER_DEVICE_DAYS*24*3600000),false);
  const tampered=cookie.slice(0,-2)+'zz';
  assert.equal(verifyOwnerSession(req('POST',{},tampered),env.LABO_MARK_SESSION_SECRET,1001),false);
 });
@@ -166,4 +167,31 @@ test('token parity check requires owner session and treats mismatch as a safe re
  assert.equal(result.values.body.ok,true);
  assert.equal(result.values.body.workerWriteTokenMatch,false);
  assert.equal(JSON.stringify(result.values.body).includes(env.LABO_MARK_DB_WRITE_TOKEN),false);
+});
+
+test('registered browser renews its cookie without a password or a DB request',async()=>{
+ const day=24*3600000,stamp=1000;
+ const original='labo_owner_marks_v1='+createOwnerSession(env.LABO_MARK_SESSION_SECRET,stamp);
+ const result=response();
+ await handleOwnerSession(req('GET',{},original),result.res,env,stamp+10*day,async()=>{throw Error('must not access DB');});
+ assert.equal(result.values.body.authenticated,true);
+ assert.equal(result.values.body.deviceRememberDays,180);
+ assert.match(result.values.headers['set-cookie'],/Max-Age=15552000; HttpOnly; Secure; SameSite=Strict/);
+ const renewed=result.values.headers['set-cookie'].split(';')[0];
+ assert.equal(verifyOwnerSession(req('POST',{},original),env.LABO_MARK_SESSION_SECRET,stamp+181*day),false);
+ assert.equal(verifyOwnerSession(req('POST',{},renewed),env.LABO_MARK_SESSION_SECRET,stamp+181*day),true);
+ assert.equal(verifyOwnerSession(req('POST',{},renewed),env.LABO_MARK_SESSION_SECRET,stamp+190*day),false);
+ assert.equal(verifyOwnerSession(req('POST',{},renewed),'rotated-session-key-'.repeat(3),stamp+11*day),false);
+});
+test('anonymous and expired browsers are never registered by the status endpoint',async()=>{
+ const stamp=1000,expired='labo_owner_marks_v1='+createOwnerSession(env.LABO_MARK_SESSION_SECRET,stamp);
+ for(const cookie of ['',expired]){
+  const result=response();
+  await handleOwnerSession(req('GET',{},cookie),result.res,env,stamp+180*24*3600000);
+  assert.equal(result.values.body.authenticated,false);
+  assert.equal(result.values.headers['set-cookie'],undefined);
+ }
+ const result=response();
+ await handleOwnerSession(req('DELETE',{},expired),result.res,env,stamp);
+ assert.match(result.values.headers['set-cookie'],/Max-Age=0/);
 });
