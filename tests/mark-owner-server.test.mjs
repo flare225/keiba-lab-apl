@@ -195,3 +195,17 @@ test('anonymous and expired browsers are never registered by the status endpoint
  await handleOwnerSession(req('DELETE',{},expired),result.res,env,stamp);
  assert.match(result.values.headers['set-cookie'],/Max-Age=0/);
 });
+
+test('owner LOCK keeps token server-side and confirms immutable hash on readback',async()=>{
+ const stamp=1000,cookie='labo_owner_marks_v1='+createOwnerSession(env.LABO_MARK_SESSION_SECRET,stamp),calls=[],hash='a'.repeat(64),out=response();
+ await handleOwnerSession(req('POST',{action:'lock-user-marks',date:'2026-10-18',venue:'東京',raceNo:11,phase:'final',revisionId:'r1',confirm:'LOCK'},cookie),out.res,env,stamp,async(url,options={})=>{
+  calls.push({url,options});return new Response(JSON.stringify(options.method==='POST'?{ok:true,stage:'user-mark-lock-verified',raceKey:'2026-10-18:東京:11',phase:'final',snapshotSha256:hash}:{ok:true,lock:{revisionId:'r1',snapshotSha256:hash,immutable:true,lockedAt:'2026-10-13T00:00:00Z'}}),{headers:{'content-type':'application/json'}});
+ });
+ assert.equal(out.values.code,200);assert.equal(out.values.body.stage,'user-mark-lock-readback-verified');assert.equal(calls.length,2);
+ assert.equal(calls[0].options.headers.authorization,'Bearer '+env.LABO_MARK_DB_WRITE_TOKEN);
+ assert.ok(!JSON.stringify(out.values.body).includes(env.LABO_MARK_DB_WRITE_TOKEN));
+});
+test('owner LOCK without a registered cookie never calls Worker',async()=>{
+ const out=response();await handleOwnerSession(req('POST',{action:'lock-user-marks'}),out.res,env,1000,async()=>{throw Error('must not fetch')});
+ assert.equal(out.values.code,401);
+});
