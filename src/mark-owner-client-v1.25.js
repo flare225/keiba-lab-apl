@@ -2,7 +2,8 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  const el=id=>document.getElementById(id),root=el('ownerMarkDbControls');
  if(!root)return;
  const state=el('ownerMarkDbStatus'),password=el('ownerMarkPassword'),login=el('ownerMarkLogin'),
-  logout=el('ownerMarkLogout'),save=el('ownerMarkSave'),restore=el('ownerMarkRestore'),loginRow=el('ownerMarkLoginRow');
+  logout=el('ownerMarkLogout'),save=el('ownerMarkSave'),restore=el('ownerMarkRestore'),loginRow=el('ownerMarkLoginRow'),review=el('ownerMarkReview'),report=el('ownerMarkReviewReport');
+ const recordText=rev=>{const p=rev?.provenance;if(p?.status==='retrospective')return '事後にDB保存した記録です。事前予想の精度実績には使いません。';if(p?.status==='verified-prior-day-record'&&p.integrityVerified===true)return '開催日前のDB記録を確認。事前LOCKとは別です。';if(p?.status==='race-day-time-unverified')return '開催当日のDB記録です。発走前の記録かは未確認です。';return '記録時刻・整合性の判定は未確認です。事前LOCKとして扱いません。';};
  let configured=false,authenticated=false,workerWriteTokenMatch=false,working=false,timer=null,lastSaved='',tokenError='',seq=0,pendingSaves=new Map();
  const current=()=>{const c=getCurrent();return c?.target?c:null;};
  const key=c=>[c.target.date,c.target.venue,c.target.raceNo,c.state.phase,c.state.track||'',JSON.stringify(c.state.marks)].join('|');
@@ -21,7 +22,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   loginRow.hidden=!configured||authenticated;login.disabled=!configured||authenticated||working;
   logout.hidden=!authenticated;logout.disabled=working;save.disabled=!authenticated||working||!c||!c.state.marks.length;
   save.title=!authenticated?'初回の端末登録が必要です。':working?'保存・接続確認中です。':!c||!c.state.marks.length?'保存する印を選択してください。':!workerWriteTokenMatch?'クリックして保存接続を再確認します。':'現在の印をDBへ保存します。';
-  restore.disabled=!authenticated||working||!c;
+  restore.disabled=!authenticated||working||!c;if(review)review.disabled=!authenticated||working||!c;
  };
  const msg=x=>{state.textContent=x;update();};
  async function prepareCurrentDraft(){
@@ -38,7 +39,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
    const body={...payload(c),confirm:'SAVE'};
    if(matchesRemote(existing,body)){
     lastSaved=snapshot;
-    msg('DB保存済み・現在の印と一致：改訂 '+existing.revisionNo+'版（'+existing.entries.length+'頭）。');
+    msg('DB保存済み・現在の印と一致：改訂 '+existing.revisionNo+'版（'+existing.entries.length+'頭）。 '+recordText(existing));
     return;
    }
    msg('DBに別の印が保存されています。既存DB記録を上書きせず停止しました。「DBから保存済み印を復元」または「DBへ今すぐ保存」を選んでください。');
@@ -116,7 +117,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
    if(matchesRemote(existing,body)){
     if(key(current()||c)===snapshot){
      lastSaved=snapshot;
-     msg('DB保存済み・既存履歴と一致：改訂 '+existing.revisionNo+'版（'+existing.entries.length+'頭）／DB保存日時 '+(existing.createdAt||'未取得')+'。新しい改訂は追加していません。');
+     msg('DB保存済み・既存履歴と一致：改訂 '+existing.revisionNo+'版（'+existing.entries.length+'頭）／DB保存日時 '+(existing.createdAt||'未取得')+'。新しい改訂は追加していません。 '+recordText(existing));
     }
     window.dispatchEvent(new Event('labo-mark-db-written'));
     return;
@@ -163,8 +164,8 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   pendingSaves.delete([c.target.date,c.target.venue,c.target.raceNo,c.state.phase].join('|'));
   if(timer!==null)clearTimeout(timer);timer=null;await persist(true);
  });
- window.addEventListener('labo-marks-changed',()=>{const c=current();if(authenticated&&c&&key(c)!==lastSaved){msg(workerWriteTokenMatch?'DB未保存：変更を検出しました。自動保存を開始します。':'DB未保存：保存トークンの確認が完了していません。');if(workerWriteTokenMatch)queue(c);}});
- window.addEventListener('labo-target-change',()=>{lastSaved='';msg('対象レースを切り替えました。保存済み履歴と画面の印を確認しています…');void prepareCurrentDraft();});
+ window.addEventListener('labo-marks-changed',()=>{if(report)report.textContent='画面の印が変更されました。以下の照合はDB保存版を対象にします。保存後に再照合してください。';const c=current();if(authenticated&&c&&key(c)!==lastSaved){msg(workerWriteTokenMatch?'DB未保存：変更を検出しました。自動保存を開始します。':'DB未保存：保存トークンの確認が完了していません。');if(workerWriteTokenMatch)queue(c);}});
+ window.addEventListener('labo-target-change',()=>{if(report)report.textContent='';lastSaved='';msg('対象レースを切り替えました。保存済み履歴と画面の印を確認しています…');void prepareCurrentDraft();});
  window.addEventListener('labo-roster-ready',()=>{update();});
  restore.addEventListener('click',async()=>{
   const c=current();if(!authenticated||working||!c)return;
@@ -186,9 +187,40 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
    if(!restored||key(restored).split('|').slice(0,4).join('|')!==stamp.split('|').slice(0,4).join('|')||
       !matchesRemote(rev,payload(restored)))throw Error('復元後の印がDB保存履歴と一致しません。自動保存完了とは判定しません。');
    lastSaved=key(restored); // Restoring an identical revision must not create a duplicate DB write.
-   msg('DBの改訂 '+rev.revisionNo+'版（'+rev.entries.length+'頭）を画面に復元しました。下書きと別に照合してください。');
+   msg('DBの改訂 '+rev.revisionNo+'版（'+rev.entries.length+'頭）を画面に復元しました。 '+recordText(rev));
   }catch(e){msg('復元できません：'+e.message+(tokenError?' 保存できない理由：'+tokenError+' 「DBへ今すぐ保存」で接続を再確認できます。':''));}
   finally{working=false;update();}
+ });
+
+ if(review&&report)review.addEventListener('click',async()=>{
+  const c=current();if(!authenticated||working||!c)return;
+  const snapshot=key(c),raceKey=c.target.date+':'+c.target.venue+':'+c.target.raceNo;
+  const q=new URLSearchParams({date:c.target.date,venue:c.target.venue,race_no:String(c.target.raceNo),phase:c.state.phase});
+  working=true;update();report.textContent='DB保存版の印と公式結果を読み取り中…';
+  try{
+   const mr=await fetcher('/v1/lab/user-marks?'+q,{credentials:'same-origin',cache:'no-store'}),md=await mr.json();
+   if(!mr.ok||!md.ok||md.raceKey!==raceKey)throw Error(md.error||'対象レースのDB印を確認できません。');
+   const rev=md.latest?.find(r=>r.phase===c.state.phase);
+   if(!rev?.entries?.length)throw Error('この段階のDB印は未保存です。先にDBへ保存してください。');
+   if(rev.provenance?.integrityVerified!==true)throw Error('DB保存版の整合性を確認できません。比較を保留します。');
+   const rr=await fetcher('https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/history/race?'+q,{cache:'no-store'}),rd=await rr.json();
+   if(!rr.ok||!rd.ok||rd.race?.raceKey!==raceKey)throw Error(rd.error||'対象レースの結果を確認できません。');
+   if(!current()||key(current())!==snapshot)throw Error('取得中にレース・印・馬場が変わりました。再照合してください。');
+   const n=Number(rd.race.runnerCount),rows=rd.runners;
+   if(!Number.isInteger(n)||n<1||n>18||!Array.isArray(rows)||rows.length>n||new Set(rows.map(r=>r.horseNo)).size!==rows.length||new Set(rows.map(r=>r.horseName)).size!==rows.length||rows.some(r=>!Number.isInteger(r.horseNo)||r.horseNo<1||r.horseNo>n||!r.horseName))throw Error('結果の馬名・馬番の対応を確認できません。');
+   const marks=rev.entries,seen=new Set(),lines=[];
+   for(const m of marks){
+    if(seen.has(m.horse_name))throw Error('保存した印に重複があります。');seen.add(m.horse_name);
+    const row=rows.find(r=>r.horseName===m.horse_name);
+    if(!row||(m.horse_no!=null&&m.horse_no!==row.horseNo))throw Error('保存した印と出走馬の対応を確認できません。');
+    const terminal={scratched:'取消',excluded:'除外','did-not-finish':'中止',disqualified:'失格'}[row.finishStatus];
+    const finish=Number.isInteger(row.finishPosition)&&row.finishPosition>=1&&row.finishPosition<=n?row.finishPosition:null;
+    lines.push(m.mark+' '+m.horse_name+' → '+(terminal|| (finish?finish+'着':'結果未取得')));
+   }
+   const unchanged=matchesRemote(rev,{...payload(c),phase:c.state.phase});
+   report.textContent='DB改訂 '+rev.revisionNo+'版 / '+c.state.phase+' / '+marks.length+'頭\n'+recordText(rev)+'\n'+(unchanged?'画面の印とDB保存版は一致。':'画面の印とDB保存版は異なります。以下はDB保存版の照合です。')+'\n'+(rd.result?.complete===true&&rows.length===n&&rows.every(r=>(Number.isInteger(r.finishPosition)&&r.finishPosition>=1&&r.finishPosition<=n)||['scratched','excluded','did-not-finish','disqualified'].includes(r.finishStatus))?'全頭の結果保存を確認。':'結果は一部未取得です。')+'\n'+lines.join('\n')+'\n事前LOCK・学習への採用は別工程です。';
+  }catch(e){report.textContent='照合を保留：'+e.message;}
+  finally{working=false;update();if(pendingSaves.size)scheduleFlush();}
  });
  update();void session();
 }
