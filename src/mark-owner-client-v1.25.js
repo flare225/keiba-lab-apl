@@ -3,7 +3,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  if(!root)return;
  const state=el('ownerMarkDbStatus'),password=el('ownerMarkPassword'),login=el('ownerMarkLogin'),
   logout=el('ownerMarkLogout'),save=el('ownerMarkSave'),restore=el('ownerMarkRestore'),loginRow=el('ownerMarkLoginRow');
- let configured=false,authenticated=false,workerWriteTokenMatch=false,working=false,timer=null,lastSaved='',seq=0,pendingSaves=new Map();
+ let configured=false,authenticated=false,workerWriteTokenMatch=false,working=false,timer=null,lastSaved='',tokenError='',seq=0,pendingSaves=new Map();
  const current=()=>{const c=getCurrent();return c?.target?c:null;};
  const key=c=>[c.target.date,c.target.venue,c.target.raceNo,c.state.phase,c.state.track||'',JSON.stringify(c.state.marks)].join('|');
  const payload=c=>{
@@ -19,7 +19,8 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  const update=()=>{
   const c=current();
   loginRow.hidden=!configured||authenticated;login.disabled=!configured||authenticated||working;
-  logout.hidden=!authenticated;logout.disabled=working;save.disabled=!authenticated||!workerWriteTokenMatch||working||!c||!c.state.marks.length;
+  logout.hidden=!authenticated;logout.disabled=working;save.disabled=!authenticated||working||!c||!c.state.marks.length;
+  save.title=!authenticated?'初回の端末登録が必要です。':working?'保存・接続確認中です。':!c||!c.state.marks.length?'保存する印を選択してください。':!workerWriteTokenMatch?'クリックして保存接続を再確認します。':'現在の印をDBへ保存します。';
   restore.disabled=!authenticated||working||!c;
  };
  const msg=x=>{state.textContent=x;update();};
@@ -45,7 +46,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
    if(current()&&key(current())===snapshot)msg('DB履歴を確認できないため自動保存を保留しました：'+e.message+'。印は端末内に残っています。');
   }
  }
- async function checkWorkerToken(){
+ async function checkWorkerToken({prepare=true}={}){
   workerWriteTokenMatch=false;working=true;update();msg('VercelとCloudflareの保存トークンをDB書込なしで照合中…');
   try{
    const r=await fetcher('/v1/lab/user-mark-session',{method:'POST',credentials:'same-origin',
@@ -53,10 +54,11 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
    const d=await r.json();
    if(!r.ok||!d.ok)throw Error(d.error||'照合できません。');
    workerWriteTokenMatch=d.workerWriteTokenMatch===true;
-   if(workerWriteTokenMatch){msg('保存トークン一致を確認しました（DB書込なし）。保存履歴を照合しています…');void prepareCurrentDraft();}
-   else msg('VercelとCloudflareの保存トークンが一致しません。DB書込を停止しました。秘密値は表示していません。');
-  }catch(e){workerWriteTokenMatch=false;msg('保存トークンを確認できません。DB書込は停止中です：'+e.message);}
+   if(workerWriteTokenMatch){tokenError='';msg('保存トークン一致を確認しました（DB書込なし）。保存履歴を照合しています…');if(prepare)void prepareCurrentDraft();}
+   else{tokenError='VercelとCloudflareの保存トークンが一致しません。サーバー設定の修正が必要です。';msg(tokenError+' DB書込は停止中です。「DBへ今すぐ保存」で再確認できます。');}
+  }catch(e){workerWriteTokenMatch=false;tokenError='保存接続を確認できません：'+e.message;msg(tokenError+' DB書込は停止中です。「DBへ今すぐ保存」で再確認できます。');}
   finally{working=false;update();}
+  return workerWriteTokenMatch;
  }
  async function session(){
   try{
@@ -153,7 +155,14 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   pendingSaves.set(id,{snapshot:key(c),body});
   scheduleFlush();
  };
- save.addEventListener('click',()=>{const c=current();if(c)pendingSaves.delete([c.target.date,c.target.venue,c.target.raceNo,c.state.phase].join('|'));if(timer!==null)clearTimeout(timer);timer=null;void persist(true);});
+ save.addEventListener('click',async()=>{
+  const c=current();if(!authenticated||working||!c||!c.state.marks.length)return;
+  const snapshot=key(c);
+  if(!workerWriteTokenMatch&&!(await checkWorkerToken({prepare:false})))return;
+  if(!current()||key(current())!==snapshot){msg('接続確認中にレース・印が変更されました。現在の印で保存ボタンを押してください。');return;}
+  pendingSaves.delete([c.target.date,c.target.venue,c.target.raceNo,c.state.phase].join('|'));
+  if(timer!==null)clearTimeout(timer);timer=null;await persist(true);
+ });
  window.addEventListener('labo-marks-changed',()=>{const c=current();if(authenticated&&c&&key(c)!==lastSaved){msg(workerWriteTokenMatch?'DB未保存：変更を検出しました。自動保存を開始します。':'DB未保存：保存トークンの確認が完了していません。');if(workerWriteTokenMatch)queue(c);}});
  window.addEventListener('labo-target-change',()=>{lastSaved='';msg('対象レースを切り替えました。保存済み履歴と画面の印を確認しています…');void prepareCurrentDraft();});
  window.addEventListener('labo-roster-ready',()=>{update();});
@@ -178,7 +187,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
       !matchesRemote(rev,payload(restored)))throw Error('復元後の印がDB保存履歴と一致しません。自動保存完了とは判定しません。');
    lastSaved=key(restored); // Restoring an identical revision must not create a duplicate DB write.
    msg('DBの改訂 '+rev.revisionNo+'版（'+rev.entries.length+'頭）を画面に復元しました。下書きと別に照合してください。');
-  }catch(e){msg('復元できません：'+e.message);}
+  }catch(e){msg('復元できません：'+e.message+(tokenError?' 保存できない理由：'+tokenError+' 「DBへ今すぐ保存」で接続を再確認できます。':''));}
   finally{working=false;update();}
  });
  update();void session();

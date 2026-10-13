@@ -33,7 +33,7 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
   if(url==='/v1/lab/user-mark-session'&&method==='GET')return json({ok:true,configured,authenticated});
   if(url==='/v1/lab/user-mark-session'&&method==='POST'){
    const body=options.body?JSON.parse(options.body):{};
-   if(body.action==='check-worker-write-token')return json({ok:true,workerWriteTokenMatch:tokenMatches,mode:'no-write'});
+   if(body.action==='check-worker-write-token')return json({ok:true,workerWriteTokenMatch:typeof tokenMatches==='function'?tokenMatches():tokenMatches,mode:'no-write'});
    authenticated=true;return json({ok:true,authenticated:true});
   }
   if(url==='/v1/lab/user-mark-session'&&method==='DELETE'){authenticated=false;return json({ok:true});}
@@ -65,10 +65,11 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
  return {elements,window,current,calls,fetcher};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,30));
-test('token mismatch keeps DB save disabled and never sends marks',async()=>{
+test('token mismatch allows connection retry but never sends marks',async()=>{
  const h=harness({tokenMatches:false});await tick();
  await h.elements.get('ownerMarkLogin').click();await tick();
- assert.equal(h.elements.get('ownerMarkSave').disabled,true);
+ assert.equal(h.elements.get('ownerMarkSave').disabled,false);
+ await h.elements.get('ownerMarkSave').click();
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/一致しません/);
  assert.equal(h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length,0);
 });
@@ -177,4 +178,17 @@ test('restore never labels a mismatched UI application as DB saved',async()=>{
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/復元後の印がDB保存履歴と一致しません/);
  assert.doesNotMatch(h.elements.get('ownerMarkDbStatus').textContent,/DB保存済み・再照合成功/);
  assert.equal(h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length,0);
+});
+
+test('save retries a failed token check and persists only after successful parity',async()=>{
+ let matches=false;
+ const h=harness({tokenMatches:()=>matches});await tick();
+ await h.elements.get('ownerMarkLogin').click();await tick();
+ await h.elements.get('ownerMarkRestore').click();await tick();
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/保存できない理由.*保存トークンが一致しません/);
+ assert.equal(h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length,0);
+ matches=true;
+ await h.elements.get('ownerMarkSave').click();await tick();
+ assert.equal(h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length,1);
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/DB保存済み・再照合成功/);
 });
