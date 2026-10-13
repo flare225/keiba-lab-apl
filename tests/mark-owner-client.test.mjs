@@ -218,3 +218,9 @@ test('a changed form during result loading cannot be reported as current compari
  await tick();await h.elements.get('ownerMarkLogin').click();await tick();await h.elements.get('ownerMarkReview').click();
  assert.match(h.elements.get('ownerMarkReviewReport').textContent,/取得中に.*変わりました/);
 });
+
+test('incomplete official outcomes remain unknown even if upstream complete flag is true',async()=>{
+ const h=harness({existing:true,resultRows:[{horseNo:1,horseName:'馬A',finishPosition:null},{horseNo:2,horseName:'馬B',finishPosition:1}]});
+ await tick();await h.elements.get('ownerMarkLogin').click();await tick();await h.elements.get('ownerMarkReview').click();
+ const text=h.elements.get('ownerMarkReviewReport').textContent;assert.match(text,/結果は一部未取得/);assert.match(text,/◎ 馬A → 結果未取得/);assert.doesNotMatch(text,/全頭の結果保存を確認/);
+});
