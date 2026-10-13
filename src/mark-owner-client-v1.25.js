@@ -218,7 +218,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
     lines.push(m.mark+' '+m.horse_name+' → '+(terminal|| (finish?finish+'着':'結果未取得')));
    }
    const unchanged=matchesRemote(rev,{...payload(c),phase:c.state.phase});
-   report.textContent='DB改訂 '+rev.revisionNo+'版 / '+c.state.phase+' / '+marks.length+'頭\n'+recordText(rev)+'\n'+(unchanged?'画面の印とDB保存版は一致。':'画面の印とDB保存版は異なります。以下はDB保存版の照合です。')+'\n'+(rd.result?.complete===true?'全頭の結果保存を確認。':'結果は一部未取得です。')+'\n'+lines.join('\n')+'\n事前LOCK・学習への採用は別工程です。';
+   report.textContent='DB改訂 '+rev.revisionNo+'版 / '+c.state.phase+' / '+marks.length+'頭\n'+recordText(rev)+'\n'+(unchanged?'画面の印とDB保存版は一致。':'画面の印とDB保存版は異なります。以下はDB保存版の照合です。')+'\n'+(rd.result?.complete===true&&rows.length===n&&rows.every(r=>(Number.isInteger(r.finishPosition)&&r.finishPosition>=1&&r.finishPosition<=n)||['scratched','excluded','did-not-finish','disqualified'].includes(r.finishStatus))?'全頭の結果保存を確認。':'結果は一部未取得です。')+'\n'+lines.join('\n')+'\n事前LOCK・学習への採用は別工程です。';
   }catch(e){report.textContent='照合を保留：'+e.message;}
   finally{working=false;update();if(pendingSaves.size)scheduleFlush();}
  });
