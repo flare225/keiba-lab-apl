@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mountOwnerMarkSave} from '../src/mark-owner-client-v1.25.js';
 
-function harness({configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false,tokenMatches=true}={}){
+function harness({configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false,tokenMatches=true,provenance={status:'retrospective',integrityVerified:true},resultRaceKey='2026-10-11:東京:11',resultRows=null,onResult=null}={}){
  const ids=['ownerMarkDbControls','ownerMarkDbStatus','ownerMarkPassword','ownerMarkLogin',
-  'ownerMarkLogout','ownerMarkSave','ownerMarkRestore','ownerMarkLoginRow'];
+  'ownerMarkLogout','ownerMarkSave','ownerMarkRestore','ownerMarkLoginRow','ownerMarkReview','ownerMarkReviewReport'];
  const elements=new Map(ids.map(id=>[id,{
   hidden:false,disabled:false,value:'',textContent:'',handlers:{},
   addEventListener(event,fn){this.handlers[event]=fn;},
@@ -24,7 +24,7 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
  let authenticated=false;
  let remote=existing?{
   phase:current.state.phase,revisionNo:1,revisionId:'old-revision',createdAt:'2026-10-09T23:00:00.000Z',
-  trackCondition:current.state.track,entries:[{horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]}:null;
+  provenance,trackCondition:current.state.track,entries:[{horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]}:null;
  const calls=[];
  const json=value=>new Response(JSON.stringify(value),{headers:{'content-type':'application/json'}});
  async function fetcher(url,options={}){
@@ -45,6 +45,10 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
     entries:body.marks.map(m=>({horse_no:m.horseNo??null,horse_name:m.horseName,mark:m.mark}))};
    return json({ok:true,stage:'db-written-readback-verified',revisionNo:rev,entryCount:body.marks.length,
     savedAt:'2026-10-10T00:00:00.000Z',verifiedAt:'2026-10-10T00:00:01.000Z'});
+  }
+  if(url.startsWith('https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/history/race?')){
+   if(onResult)onResult({current});
+   return json({ok:true,race:{raceKey:resultRaceKey,runnerCount:2},result:{complete:true},runners:resultRows||[{horseNo:1,horseName:'馬A',finishPosition:2,finishStatus:'finished'},{horseNo:2,horseName:'馬B',finishPosition:1,finishStatus:'finished'}]});
   }
   if(url.startsWith('/v1/lab/user-marks?')){
    if(onRead)await onRead({current,window,calls});
@@ -191,4 +195,26 @@ test('save retries a failed token check and persists only after successful parit
  await h.elements.get('ownerMarkSave').click();await tick();
  assert.equal(h.calls.filter(c=>c.url==='/v1/lab/user-marks/save').length,1);
  assert.match(h.elements.get('ownerMarkDbStatus').textContent,/DB保存済み・再照合成功/);
+});
+
+test('saved marks compare to official results read-only and retrospective marks never receive pre-race credit',async()=>{
+ const h=harness({existing:true});await tick();await h.elements.get('ownerMarkLogin').click();await tick();
+ const writes=h.calls.filter(x=>x.method==='POST'&&x.url.includes('/save')).length;
+ await h.elements.get('ownerMarkReview').click();
+ const text=h.elements.get('ownerMarkReviewReport').textContent;
+ assert.match(text,/事後にDB保存/);assert.match(text,/事前予想の精度実績には使いません/);
+ assert.match(text,/◎ 馬A → 2着/);assert.match(text,/○ 馬B → 1着/);
+ assert.equal(h.calls.filter(x=>x.method==='POST'&&x.url.includes('/save')).length,writes);
+});
+test('result comparison rejects a different race, duplicated identities or unverified mark integrity',async()=>{
+ for(const options of [{resultRaceKey:'2026-10-11:京都:11'},{resultRows:[{horseNo:1,horseName:'馬A',finishPosition:1},{horseNo:1,horseName:'馬B',finishPosition:2}]},{provenance:{status:'unverified',integrityVerified:false}}]){
+  const h=harness({existing:true,...options});await tick();await h.elements.get('ownerMarkLogin').click();await tick();await h.elements.get('ownerMarkReview').click();
+  assert.match(h.elements.get('ownerMarkReviewReport').textContent,/照合を保留/);
+  assert.equal(h.calls.filter(x=>x.url.includes('/save')).length,0);
+ }
+});
+test('a changed form during result loading cannot be reported as current comparison',async()=>{
+ const h=harness({existing:true,onResult:({current})=>{current.state.marks[0].mark='▲';}});
+ await tick();await h.elements.get('ownerMarkLogin').click();await tick();await h.elements.get('ownerMarkReview').click();
+ assert.match(h.elements.get('ownerMarkReviewReport').textContent,/取得中に.*変わりました/);
 });
