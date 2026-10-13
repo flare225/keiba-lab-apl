@@ -81,6 +81,7 @@ export async function handleOwnerSession(req,res,env=process.env,stamp=now(),fet
  if(req.method!=='POST')return output(res,405,{ok:false,error:'操作に対応していません。'});
  if(!sameOrigin(req))return output(res,403,{ok:false,error:'同一画面から操作してください。'});
  if(!cfg(env))return output(res,503,{ok:false,error:'DB保存用の管理設定が未完了です。運営者によるサーバー認証・DB接続設定が必要です。'});
+ if(req.body?.action==='lock-user-marks')return handleOwnerMarkLock(req,res,fetcher,env,stamp);
  if(req.body?.action==='check-worker-write-token'){
   if(!verifyOwnerSession(req,env.LABO_MARK_SESSION_SECRET,stamp))
    return output(res,401,{ok:false,error:'保存トークン確認には本人認証が必要です。'});
@@ -138,4 +139,20 @@ export async function handleOwnerMarkSave(req,res,fetcher=fetch,env=process.env,
  }catch{
   return output(res,502,{ok:false,saveMayHaveSucceeded:true,error:'DB保存または保存後の照合が確認できませんでした。保存履歴を再確認してください。'});
  }
+}
+
+export async function handleOwnerMarkLock(req,res,fetcher=fetch,env=process.env,stamp=now()){
+ if(req.method!=='POST'||!sameOrigin(req))return output(res,403,{ok:false,error:'同一画面から操作してください。'});
+ if(!cfg(env))return output(res,503,{ok:false,error:'保存接続が未設定です。'});
+ if(!verifyOwnerSession(req,env.LABO_MARK_SESSION_SECRET,stamp))return output(res,401,{ok:false,error:'端末登録が必要です。'});
+ const b=req.body;
+ if(!DAY.test(b?.date||'')||!['東京','京都','中山','阪神','中京','小倉','福島','新潟','函館','札幌'].includes(b?.venue)||!Number.isInteger(b?.raceNo)||b.raceNo<1||b.raceNo>12||!['post_draw','final'].includes(b?.phase)||typeof b.revisionId!=='string'||b.revisionId.length>200||b.confirm!=='LOCK')return output(res,400,{ok:false,error:'固定するDB保存版を確認してください。'});
+ const endpoint='https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/user-mark-lock',data={date:b.date,venue:b.venue,raceNo:b.raceNo,phase:b.phase,revisionId:b.revisionId,confirm:'LOCK'};
+ try{
+  const r=await fetcher(endpoint,{method:'POST',redirect:'error',signal:AbortSignal.timeout(25000),headers:{authorization:'Bearer '+env.LABO_MARK_DB_WRITE_TOKEN,'content-type':'application/json'},body:JSON.stringify(data)}),answer=await readJSON(r);
+  if(!r.ok||!answer.ok)return output(res,[400,401,409,503].includes(r.status)?r.status:502,{ok:false,error:answer.error||'LOCKできません。'});
+  const q=new URLSearchParams({date:b.date,venue:b.venue,race_no:String(b.raceNo),phase:b.phase}),proof=await fetcher(endpoint+'?'+q,{redirect:'error',signal:AbortSignal.timeout(25000)}),checked=await readJSON(proof),lock=checked.lock;
+  if(answer.stage!=='user-mark-lock-verified'||answer.raceKey!==b.date+':'+b.venue+':'+b.raceNo||answer.phase!==b.phase||!proof.ok||!checked.ok||lock?.revisionId!==b.revisionId||lock?.immutable!==true||! /^[a-f0-9]{64}$/.test(lock.snapshotSha256||'')||lock.snapshotSha256!==answer.snapshotSha256)return output(res,502,{ok:false,lockMayHaveSucceeded:true,error:'LOCK後の読み返し照合を確認できません。'});
+  return output(res,200,{ok:true,stage:'user-mark-lock-readback-verified',...lock});
+ }catch{return output(res,502,{ok:false,lockMayHaveSucceeded:true,error:'LOCKと読み返し照合を確認できません。'});}
 }
