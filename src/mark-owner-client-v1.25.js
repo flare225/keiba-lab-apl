@@ -2,8 +2,8 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  const el=id=>document.getElementById(id),root=el('ownerMarkDbControls');
  if(!root)return;
  const state=el('ownerMarkDbStatus'),password=el('ownerMarkPassword'),login=el('ownerMarkLogin'),
-  logout=el('ownerMarkLogout'),save=el('ownerMarkSave'),restore=el('ownerMarkRestore'),loginRow=el('ownerMarkLoginRow'),review=el('ownerMarkReview'),report=el('ownerMarkReviewReport');
- const recordText=rev=>{const p=rev?.provenance;if(p?.status==='retrospective')return '事後にDB保存した記録です。事前予想の精度実績には使いません。';if(p?.status==='verified-prior-day-record'&&p.integrityVerified===true)return '開催日前のDB記録を確認。事前LOCKとは別です。';if(p?.status==='race-day-time-unverified')return '開催当日のDB記録です。発走前の記録かは未確認です。';return '記録時刻・整合性の判定は未確認です。事前LOCKとして扱いません。';};
+  logout=el('ownerMarkLogout'),save=el('ownerMarkSave'),restore=el('ownerMarkRestore'),loginRow=el('ownerMarkLoginRow'),lockButton=el('ownerMarkLock'),review=el('ownerMarkReview'),report=el('ownerMarkReviewReport');
+ const recordText=rev=>{if(rev?.userLock?.immutable===true&&rev.userLock.revisionId===rev.revisionId&&rev.provenance?.integrityVerified===true)return 'このDB改訂は事前LOCK済みです（'+new Date(rev.userLock.lockedAt).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})+'）。学習への採用は別工程です。';const p=rev?.provenance;if(p?.status==='retrospective')return '事後にDB保存した記録です。事前予想の精度実績には使いません。';if(p?.status==='verified-prior-day-record'&&p.integrityVerified===true)return '開催日前のDB記録を確認。事前LOCKとは別です。';if(p?.status==='race-day-time-unverified')return '開催当日のDB記録です。発走前の記録かは未確認です。';return '記録時刻・整合性の判定は未確認です。事前LOCKとして扱いません。';};
  let configured=false,authenticated=false,workerWriteTokenMatch=false,working=false,timer=null,lastSaved='',tokenError='',seq=0,pendingSaves=new Map();
  const current=()=>{const c=getCurrent();return c?.target?c:null;};
  const key=c=>[c.target.date,c.target.venue,c.target.raceNo,c.state.phase,c.state.track||'',JSON.stringify(c.state.marks)].join('|');
@@ -22,7 +22,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   loginRow.hidden=!configured||authenticated;login.disabled=!configured||authenticated||working;
   logout.hidden=!authenticated;logout.disabled=working;save.disabled=!authenticated||working||!c||!c.state.marks.length;
   save.title=!authenticated?'初回の端末登録が必要です。':working?'保存・接続確認中です。':!c||!c.state.marks.length?'保存する印を選択してください。':!workerWriteTokenMatch?'クリックして保存接続を再確認します。':'現在の印をDBへ保存します。';
-  restore.disabled=!authenticated||working||!c;if(review)review.disabled=!authenticated||working||!c;
+  restore.disabled=!authenticated||working||!c;if(review)review.disabled=!authenticated||working||!c;if(lockButton)lockButton.disabled=!authenticated||working||!c||c.state.phase==='initial';
  };
  const msg=x=>{state.textContent=x;update();};
  async function prepareCurrentDraft(){
@@ -215,11 +215,29 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
     if(!row||(m.horse_no!=null&&m.horse_no!==row.horseNo))throw Error('保存した印と出走馬の対応を確認できません。');
     const terminal={scratched:'取消',excluded:'除外','did-not-finish':'中止',disqualified:'失格'}[row.finishStatus];
     const finish=Number.isInteger(row.finishPosition)&&row.finishPosition>=1&&row.finishPosition<=n?row.finishPosition:null;
-    lines.push(m.mark+' '+m.horse_name+' → '+(terminal|| (finish?finish+'着':'結果未取得')));
+    const model=rev.audit?.audit?.marked?.find(x=>x.horseName===m.horse_name),rank=Number.isInteger(model?.laboRank)?' / 保存時LABO '+model.laboRank+'位':' / 保存時LABO順位未保存';
+    lines.push(m.mark+' '+m.horse_name+rank+' → '+(terminal|| (finish?finish+'着':'結果未取得')));
    }
    const unchanged=matchesRemote(rev,{...payload(c),phase:c.state.phase});
    report.textContent='DB改訂 '+rev.revisionNo+'版 / '+c.state.phase+' / '+marks.length+'頭\n'+recordText(rev)+'\n'+(unchanged?'画面の印とDB保存版は一致。':'画面の印とDB保存版は異なります。以下はDB保存版の照合です。')+'\n'+(rd.result?.complete===true&&rows.length===n&&rows.every(r=>(Number.isInteger(r.finishPosition)&&r.finishPosition>=1&&r.finishPosition<=n)||['scratched','excluded','did-not-finish','disqualified'].includes(r.finishStatus))?'全頭の結果保存を確認。':'結果は一部未取得です。')+'\n'+lines.join('\n')+'\n事前LOCK・学習への採用は別工程です。';
   }catch(e){report.textContent='照合を保留：'+e.message;}
+  finally{working=false;update();if(pendingSaves.size)scheduleFlush();}
+ });
+
+ if(lockButton)lockButton.addEventListener('click',async()=>{
+  const c=current();if(!authenticated||working||!c||c.state.phase==='initial')return;
+  const snapshot=key(c),q=new URLSearchParams({date:c.target.date,venue:c.target.venue,race_no:String(c.target.raceNo),phase:c.state.phase});
+  working=true;update();
+  try{
+   const r=await fetcher('/v1/lab/user-marks?'+q,{credentials:'same-origin',cache:'no-store'}),d=await r.json();
+   const rev=d.latest?.find(x=>x.phase===c.state.phase);
+   if(!r.ok||!d.ok||d.raceKey!==c.target.date+':'+c.target.venue+':'+c.target.raceNo||!rev||rev.provenance?.integrityVerified!==true)throw Error('固定するDB保存版を確認できません。');
+   if(!current()||key(current())!==snapshot||!matchesRemote(rev,payload(c)))throw Error('画面の印とDB保存版が一致しません。先に保存してください。');
+   if(!window.confirm('DB改訂 '+rev.revisionNo+'版の印を事前LOCKします。固定版は後から上書きできません。よろしいですか？'))return;
+   const saved=await fetcher('/v1/lab/user-mark-session',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'lock-user-marks',date:c.target.date,venue:c.target.venue,raceNo:c.target.raceNo,phase:c.state.phase,revisionId:rev.revisionId,confirm:'LOCK'})}),answer=await saved.json();
+   if(!saved.ok||!answer.ok||answer.stage!=='user-mark-lock-readback-verified'||answer.revisionId!==rev.revisionId)throw Error(answer.error||'LOCKの読み返しを確認できません。');
+   if(current()&&key(current())===snapshot)msg('事前LOCK済み・読み返し一致：DB改訂 '+rev.revisionNo+'版。固定日時 '+new Date(answer.lockedAt).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})+'。以後の印編集は固定版を変更しません。');
+  }catch(e){if(current()&&key(current())===snapshot)msg('事前LOCKを確認できません：'+e.message);}
   finally{working=false;update();if(pendingSaves.size)scheduleFlush();}
  });
  update();void session();
