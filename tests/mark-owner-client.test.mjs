@@ -4,7 +4,7 @@ import {mountOwnerMarkSave} from '../src/mark-owner-client-v1.25.js';
 
 function harness({configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false,tokenMatches=true,provenance={status:'retrospective',integrityVerified:true},resultRaceKey='2026-10-11:東京:11',resultRows=null,onResult=null}={}){
  const ids=['ownerMarkDbControls','ownerMarkDbStatus','ownerMarkPassword','ownerMarkLogin',
-  'ownerMarkLogout','ownerMarkSave','ownerMarkRestore','ownerMarkLoginRow','ownerMarkReview','ownerMarkReviewReport'];
+  'ownerMarkLogout','ownerMarkSave','ownerMarkRestore','ownerMarkLoginRow','ownerMarkReview','ownerMarkReviewReport','ownerMarkLock'];
  const elements=new Map(ids.map(id=>[id,{
   hidden:false,disabled:false,value:'',textContent:'',handlers:{},
   addEventListener(event,fn){this.handlers[event]=fn;},
@@ -33,6 +33,7 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
   if(url==='/v1/lab/user-mark-session'&&method==='GET')return json({ok:true,configured,authenticated});
   if(url==='/v1/lab/user-mark-session'&&method==='POST'){
    const body=options.body?JSON.parse(options.body):{};
+   if(body.action==='lock-user-marks')return json({ok:true,stage:'user-mark-lock-readback-verified',revisionId:body.revisionId,lockedAt:'2026-10-10T00:00:00Z'});
    if(body.action==='check-worker-write-token')return json({ok:true,workerWriteTokenMatch:typeof tokenMatches==='function'?tokenMatches():tokenMatches,mode:'no-write'});
    authenticated=true;return json({ok:true,authenticated:true});
   }
@@ -203,7 +204,7 @@ test('saved marks compare to official results read-only and retrospective marks 
  await h.elements.get('ownerMarkReview').click();
  const text=h.elements.get('ownerMarkReviewReport').textContent;
  assert.match(text,/事後にDB保存/);assert.match(text,/事前予想の精度実績には使いません/);
- assert.match(text,/◎ 馬A → 2着/);assert.match(text,/○ 馬B → 1着/);
+ assert.match(text,/◎ 馬A.*→ 2着/);assert.match(text,/○ 馬B.*→ 1着/);
  assert.equal(h.calls.filter(x=>x.method==='POST'&&x.url.includes('/save')).length,writes);
 });
 test('result comparison rejects a different race, duplicated identities or unverified mark integrity',async()=>{
@@ -222,5 +223,22 @@ test('a changed form during result loading cannot be reported as current compari
 test('incomplete official outcomes remain unknown even if upstream complete flag is true',async()=>{
  const h=harness({existing:true,resultRows:[{horseNo:1,horseName:'馬A',finishPosition:null},{horseNo:2,horseName:'馬B',finishPosition:1}]});
  await tick();await h.elements.get('ownerMarkLogin').click();await tick();await h.elements.get('ownerMarkReview').click();
- const text=h.elements.get('ownerMarkReviewReport').textContent;assert.match(text,/結果は一部未取得/);assert.match(text,/◎ 馬A → 結果未取得/);assert.doesNotMatch(text,/全頭の結果保存を確認/);
+ const text=h.elements.get('ownerMarkReviewReport').textContent;assert.match(text,/結果は一部未取得/);assert.match(text,/◎ 馬A.*→ 結果未取得/);assert.doesNotMatch(text,/全頭の結果保存を確認/);
+});
+
+test('explicit LOCK uses the matching saved revision and never saves new marks',async()=>{
+ const h=harness({existing:true});await tick();await h.elements.get('ownerMarkLogin').click();await tick();
+ await h.elements.get('ownerMarkLock').click();
+ assert.equal(h.calls.filter(x=>x.body?.action==='lock-user-marks').length,1);
+ assert.equal(h.calls.find(x=>x.body?.action==='lock-user-marks').body.revisionId,'old-revision');
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/事前LOCK済み・読み返し一致/);
+ assert.equal(h.calls.filter(x=>x.url.includes('/save')).length,0);
+});
+test('unsaved or unverified marks cannot be locked by the browser',async()=>{
+ for(const options of [{provenance:{integrityVerified:false}},{ }]){
+  const h=harness({existing:true,...options});await tick();await h.elements.get('ownerMarkLogin').click();await tick();
+  if(!options.provenance)h.current.state.marks[0].mark='▲';
+  await h.elements.get('ownerMarkLock').click();
+  assert.equal(h.calls.filter(x=>x.body?.action==='lock-user-marks').length,0);
+ }
 });
