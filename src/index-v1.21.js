@@ -353,6 +353,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  '<button type="submit" class="btn secondary" id="ownerMarkLogin">本人認証する（初回の端末登録）</button></form>'+
  '<div class="controls"><button type="button" class="btn" id="ownerMarkSave" disabled>DBへ今すぐ保存</button>'+
  '<button type="button" class="btn secondary" id="ownerMarkRestore" disabled>DB保存済み印を復元</button>'+
+ '<button type="button" class="btn secondary" id="ownerMarkLock" disabled>DB保存版を事前LOCK</button>'+
  '<button type="button" class="btn secondary" id="ownerMarkReview" disabled>DB保存した印と結果を照合</button>'+
  '<button type="button" class="btn secondary" id="ownerMarkLogout" hidden>この端末の登録を解除</button></div>'+
  '<p id="ownerMarkReviewReport" class="notice" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>'+
