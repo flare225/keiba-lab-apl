@@ -1,3 +1,4 @@
+import {lockedEvidenceLines} from './locked-mark-evidence-view.js';
 export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPayload,initialLocalMarkPayload,applyDbMarks,fetcher=fetch,scheduleDelay=1600}){
  const el=id=>document.getElementById(id),root=el('ownerMarkDbControls');
  if(!root)return;
@@ -236,6 +237,15 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
      }
     }
    }
+   lines.push('\n保存時のLABO評価は、過去走補完後も変更しません。最新評価は「LABO印・順位を計算する」で確認できます。');
+   if(rev.userLock?.immutable){
+    try{
+     const er=await fetcher('/v1/lab/locked-mark-results?'+q,{cache:'no-store'}),ed=await er.json();
+     if(!er.ok||!ed.ok)throw Error(ed.error||'照合履歴を取得できません。');
+     lines.push('\n'+lockedEvidenceLines(ed.evidence,rev,raceKey,rows).join('\n'));
+    }catch(e){lines.push('\n事前LOCKの照合履歴は確認できません：'+e.message);}
+   }else lines.push('\n'+lockedEvidenceLines([],rev,raceKey,rows).join('\n'));
+   if(!current()||key(current())!==snapshot)throw Error('取得中にレース・印・馬場が変わりました。再照合してください。');
    const unchanged=matchesRemote(rev,{...payload(c),phase:c.state.phase});
    report.textContent='DB改訂 '+rev.revisionNo+'版 / '+c.state.phase+' / '+marks.length+'頭\n'+recordText(rev)+'\n'+(unchanged?'画面の印とDB保存版は一致。':'画面の印とDB保存版は異なります。以下はDB保存版の照合です。')+'\n'+(rd.result?.complete===true&&rows.length===n&&rows.every(r=>(Number.isInteger(r.finishPosition)&&r.finishPosition>=1&&r.finishPosition<=n)||['scratched','excluded','did-not-finish','disqualified'].includes(r.finishStatus))?'全頭の結果保存を確認。':'結果は一部未取得です。')+'\n'+lines.join('\n')+'\n事前LOCK・学習への採用は別工程です。';
   }catch(e){report.textContent='照合を保留：'+e.message;}

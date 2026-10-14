@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mountOwnerMarkSave} from '../src/mark-owner-client-v1.25.js';
 
-function harness({configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false,tokenMatches=true,provenance={status:'retrospective',integrityVerified:true},resultRaceKey='2026-10-11:東京:11',resultRows=null,onResult=null,savedAudit=null}={}){
+function harness({configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false,tokenMatches=true,provenance={status:'retrospective',integrityVerified:true},resultRaceKey='2026-10-11:東京:11',resultRows=null,onResult=null,savedAudit=null,userLock=null,lockedEvidence=[]}={}){
  const ids=['ownerMarkDbControls','ownerMarkDbStatus','ownerMarkPassword','ownerMarkLogin',
   'ownerMarkLogout','ownerMarkSave','ownerMarkRestore','ownerMarkLoginRow','ownerMarkReview','ownerMarkReviewReport','ownerMarkLock'];
  const elements=new Map(ids.map(id=>[id,{
@@ -24,7 +24,7 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
  let authenticated=false;
  let remote=existing?{
   phase:current.state.phase,revisionNo:1,revisionId:'old-revision',createdAt:'2026-10-09T23:00:00.000Z',
-  provenance,audit:savedAudit,trackCondition:current.state.track,entries:[{horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]}:null;
+  provenance,userLock,audit:savedAudit,trackCondition:current.state.track,entries:[{horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]}:null;
  const calls=[];
  const json=value=>new Response(JSON.stringify(value),{headers:{'content-type':'application/json'}});
  async function fetcher(url,options={}){
@@ -51,6 +51,7 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
    if(onResult)onResult({current});
    return json({ok:true,race:{raceKey:resultRaceKey,runnerCount:2},result:{complete:true},runners:resultRows||[{horseNo:1,horseName:'馬A',finishPosition:2,finishStatus:'finished'},{horseNo:2,horseName:'馬B',finishPosition:1,finishStatus:'finished'}]});
   }
+  if(url.startsWith('/v1/lab/locked-mark-results?'))return json({ok:true,evidence:lockedEvidence});
   if(url.startsWith('/v1/lab/user-marks?')){
    if(onRead)await onRead({current,window,calls});
    return json({ok:true,raceKey:readRaceKey||'2026-10-11:東京:11',latest:remote?[remote]:[]});
@@ -256,4 +257,14 @@ test('unsaved or unverified marks cannot be locked by the browser',async()=>{
   await h.elements.get('ownerMarkLock').click();
   assert.equal(h.calls.filter(x=>x.body?.action==='lock-user-marks').length,0);
  }
+});
+
+test('review reads the DB lock evidence without writing or recomputing stored scores',async()=>{
+ const key='2026-10-11:東京:11';
+ const lockedEvidence=[{raceKey:key,phase:'final',revisionId:'old-revision',lockSha256:'hash',createdAt:'2026-10-12T00:00:00Z',guardrails:{savedScoresOnly:true,retrospectivePredictionCreated:false,automaticPromotion:false,validatedAccuracyClaimed:false},rows:[{horseNo:1,horseName:'馬A',finishPosition:2,finishStatus:'finished',referenceRank:1,referenceMark:'◎',userMark:'◎',rankGap:1},{horseNo:2,horseName:'馬B',finishPosition:1,finishStatus:'finished',referenceRank:2,referenceMark:'○',userMark:'○',rankGap:-1}]}];
+ const h=harness({existing:true,userLock:{immutable:true,revisionId:'old-revision',snapshotSha256:'hash'},lockedEvidence});
+ await tick();await h.elements.get('ownerMarkLogin').click();await tick();await h.elements.get('ownerMarkReview').click();
+ assert.match(h.elements.get('ownerMarkReviewReport').textContent,/事前LOCK版と公式結果のDB照合履歴/);
+ assert.ok(h.calls.some(c=>c.url.includes('/locked-mark-results?')&&c.method==='GET'));
+ assert.equal(h.calls.filter(c=>c.url.includes('/save')).length,0);
 });

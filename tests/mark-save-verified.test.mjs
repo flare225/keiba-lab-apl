@@ -96,3 +96,14 @@ test('initial DB revision matches names/marks even when official horse numbers w
  assert.equal(sameDbMarks(initial,{...recorded,entries:[
   {horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'▲'}]}),false);
 });
+test('LOCK evidence proxy is fixed-target GET only and never forwards credentials',async()=>{
+ const req={method:'GET',query:{date:'2026-10-11',venue:'東京',race_no:'11',phase:'final'}};
+ const allowed=response();
+ await handleMarkHistory(req,allowed.res,async(url,opts)=>{
+  assert.ok(url.startsWith('https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/locked-mark-results?'));
+  assert.equal(opts.method,'GET');assert.equal(opts.headers,undefined);
+  return Response.json({ok:true,evidence:[]});
+ },'locked-mark-results');
+ assert.equal(allowed.data.code,200);assert.deepEqual(allowed.data.value.evidence,[]);
+ const denied=response();await handleMarkHistory({...req,method:'POST'},denied.res,()=>{throw Error('must not fetch')},'locked-mark-results');assert.equal(denied.data.code,405);
+});

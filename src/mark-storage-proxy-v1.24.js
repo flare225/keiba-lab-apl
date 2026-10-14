@@ -1,4 +1,4 @@
-const TARGET='https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/user-marks';
+const TARGET='https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/';
 const send=(res,status,body)=>res.status(status).setHeader('cache-control','no-store').json(body);
 export function parseMarkHistoryQuery(q){
  const date=String(q?.date||''),venue=String(q?.venue||''),raceNo=Number(q?.race_no),phase=String(q?.phase||'');
@@ -7,13 +7,14 @@ export function parseMarkHistoryQuery(q){
  throw Error('レース指定が不正です。');
  return new URLSearchParams({date,venue,race_no:String(raceNo),phase});
 }
-export async function handleMarkHistory(req,res,fetcher=fetch){
+export async function handleMarkHistory(req,res,fetcher=fetch,mode='user-marks'){
  res.setHeader('cache-control','no-store');
+ if(!['user-marks','locked-mark-results'].includes(mode))return send(res,404,{ok:false,error:'読み取り対象が不正です。'});
  if(req.method!=='GET')return send(res,405,{ok:false,error:'DB履歴の読み取り専用です。'});
  let query;
  try{query=parseMarkHistoryQuery(req.query);}catch(err){return send(res,400,{ok:false,error:err.message});}
  try{
-  const response=await fetcher(TARGET+'?'+query.toString(),{method:'GET',redirect:'error',signal:AbortSignal.timeout(25000)});
+  const response=await fetcher(TARGET+mode+'?'+query.toString(),{method:'GET',redirect:'error',signal:AbortSignal.timeout(25000)});
   if(!(response.headers.get('content-type')||'').includes('application/json'))return send(res,502,{ok:false,error:'LABO DBの応答を読み取れませんでした。'});
   const body=await response.json();
   if(!body||typeof body!=='object')return send(res,502,{ok:false,error:'LABO DBの応答が不正です。'});
