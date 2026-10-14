@@ -215,8 +215,26 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
     if(!row||(m.horse_no!=null&&m.horse_no!==row.horseNo))throw Error('保存した印と出走馬の対応を確認できません。');
     const terminal={scratched:'取消',excluded:'除外','did-not-finish':'中止',disqualified:'失格'}[row.finishStatus];
     const finish=Number.isInteger(row.finishPosition)&&row.finishPosition>=1&&row.finishPosition<=n?row.finishPosition:null;
-    const model=rev.audit?.audit?.marked?.find(x=>x.horseName===m.horse_name),rank=Number.isInteger(model?.laboRank)?' / 保存時LABO '+model.laboRank+'位':' / 保存時LABO順位未保存';
+    const model=rev.audit?.audit?.marked?.find(x=>x.horseName===m.horse_name),label=model?.laboRankSource==='history-reference-assessment'?'保存時LABO参考':'保存時LABO',rank=Number.isInteger(model?.laboRank)?' / '+label+' '+model.laboRank+'位':' / 保存時LABO順位未保存';
     lines.push(m.mark+' '+m.horse_name+rank+' → '+(terminal|| (finish?finish+'着':'結果未取得')));
+   }
+   const reference=rev.audit?.audit?.referenceAssessment;
+   if(reference){
+    const pool=reference.allRunners;
+    const verified=rev.audit?.race?.raceKey===raceKey&&reference.runnerPool===n&&Array.isArray(pool)&&pool.length===n&&new Set(pool.map(x=>x.horseNo)).size===n&&new Set(pool.map(x=>x.horseName)).size===n&&pool.every(x=>rows.some(r=>r.horseNo===x.horseNo&&r.horseName===x.horseName));
+    if(!verified)lines.push('\n全馬LABO参考評価：保存版と公式出走馬の対応を確認できず、表示を保留。');
+    else{
+     lines.push('\n【DB保存時の全馬LABO参考評価】','参考指数・参考印です。精度実績への採用は事前LOCKの検証が必要です。');
+     for(const x of [...pool].sort((a,b)=>(a.referenceRank??999)-(b.referenceRank??999)||a.horseNo-b.horseNo)){
+      const r=rows.find(r=>r.horseNo===x.horseNo),user=marks.find(m=>m.horse_name===x.horseName)?.mark||'無印';
+      const finish=Number.isInteger(r.finishPosition)&&r.finishPosition>=1&&r.finishPosition<=n?r.finishPosition:null;
+      const terminal={scratched:'取消',excluded:'除外','did-not-finish':'中止',disqualified:'失格'}[r.finishStatus];
+      const rank=Number.isInteger(x.referenceRank)&&x.referenceRank>=1&&x.referenceRank<=n?x.referenceRank:null;
+      const score=typeof x.evidenceScore==='number'&&Number.isFinite(x.evidenceScore)?x.evidenceScore:null;
+      const symbol=['◎','○','▲','△','☆'].includes(x.mark)?x.mark:'印保留';
+      lines.push(symbol+' '+x.horseNo+'番 '+x.horseName+' / '+(rank?rank+'位'+(x.tiedCount>1?'（同点）':''):'順位保留')+' / '+(score===null?'指数未保存':score+'点')+' / ユーザー '+user+' → '+(terminal||(finish?finish+'着':'結果未取得'))+(finish&&rank&&!terminal?' / 順位差 '+(finish-rank>0?'+':'')+(finish-rank):''));
+     }
+    }
    }
    const unchanged=matchesRemote(rev,{...payload(c),phase:c.state.phase});
    report.textContent='DB改訂 '+rev.revisionNo+'版 / '+c.state.phase+' / '+marks.length+'頭\n'+recordText(rev)+'\n'+(unchanged?'画面の印とDB保存版は一致。':'画面の印とDB保存版は異なります。以下はDB保存版の照合です。')+'\n'+(rd.result?.complete===true&&rows.length===n&&rows.every(r=>(Number.isInteger(r.finishPosition)&&r.finishPosition>=1&&r.finishPosition<=n)||['scratched','excluded','did-not-finish','disqualified'].includes(r.finishStatus))?'全頭の結果保存を確認。':'結果は一部未取得です。')+'\n'+lines.join('\n')+'\n事前LOCK・学習への採用は別工程です。';
