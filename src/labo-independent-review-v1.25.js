@@ -1,6 +1,6 @@
 const escapeReview=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const finiteReview=n=>typeof n==='number'&&Number.isFinite(n);
-const DISPLAY_MARKS=['◎','○','▲','△','△','☆'];
+export const DISPLAY_MARKS=['◎','○','▲','△','△','☆'];
 export function assignIndependentLaboMarks(rows=[],pool=0,scored=0){
  const complete=pool>=1&&scored===pool&&rows.length===pool;
  const marks=new Map();

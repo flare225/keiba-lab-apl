@@ -7,12 +7,13 @@ import {renderWorkoutEvidence,mountWorkoutEvidence,netkeibaWorkoutReference} fro
 import {WORKOUT_IMPRESSIONS,getOfficialWorkoutRoster,workoutImpressionSummary,mountWorkoutImpressions} from './workout-impression-v1.23.js';
 import {USER_MARKS,TRACK_CONDITIONS,verifiedMarkPayload,initialLocalMarkPayload,draftMarkMatch,sameDbMarks,summarizeDbRevision,localMarkReceipt} from './mark-save-state-v1.24.js';
 import {mountMarkSaving} from './mark-save-client-v1.24.js';
-import {assignIndependentLaboMarks,buildIndependentLaboReview,renderIndependentLaboReview,mountIndependentLaboReview} from './labo-independent-review-v1.25.js';
+import {DISPLAY_MARKS,assignIndependentLaboMarks,buildIndependentLaboReview,renderIndependentLaboReview,mountIndependentLaboReview} from './labo-independent-review-v1.25.js';
+import {lockedEvidenceLines} from './locked-mark-evidence-view.js';
 import {mountOwnerMarkSave} from './mark-owner-client-v1.25.js';
 import {MARK_PHASES,MARK_PHASE_STORAGE_PREFIX,markPhaseStorageKey,readRememberedMarkPhase,serializeRacePreference} from './mark-view-preferences.js';
 import {MARK_EXPORT_PHASES,MARK_EXPORT_LABELS,MARK_EXPORT_CHOICES,parseRace,snapshot,readStored,collectSavedRaceMarks,formatBulkRaceMarks,mountBulkRaceMarkCopy} from './mark-bulk-export-v1.24.js';
 import {PORTABLE_MARK_BACKUP_KIND,PORTABLE_MARK_BACKUP_SCHEMA,TRACK as PORTABLE_TRACK,validDate,safeIso,raceId,normalizeRecord,buildPortableMarkBackup,parsePortableMarkBackup,importPortableMarkBackup,mountPortableMarkBackup} from './mark-portable-backup.js';
-export const VERSION='1.25.2';
+export const VERSION='1.25.3';
 export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={}){
  const input=Number(budget),yen=Number.isFinite(input)&&input>=100?Math.floor(input/100)*100:0,clean=(Array.isArray(marks)?marks:[]).filter(x=>x&&(x.horseName||Number.isInteger(x.horseNo))&&['◎','○','▲','△','☆','注'].includes(x.mark)).slice(0,18).map(x=>({...x,horseName:(Number.isInteger(x.frameNo)?x.frameNo+'枠 ':'')+(Number.isInteger(x.horseNo)?x.horseNo+'番 ':'')+(x.horseName||'')})),by=m=>clean.filter(x=>x.mark===m).map(x=>x.horseName);
  const main=[...by('◎'),...by('○'),...by('▲')].slice(0,6),insurance=[...by('△'),...by('☆'),...by('注')].slice(0,6),items=[],enabled=new Set(Array.isArray(types)?types:['馬連','ワイド','三連複','三連単']);
@@ -250,11 +251,12 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
  const mountMarkSaving=${mountMarkSaving.toString()};
  const escapeReview=${(x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))).toString()};
  const finiteReview=${(n=>typeof n==='number'&&Number.isFinite(n)).toString()};
- const DISPLAY_MARKS=${JSON.stringify(['◎','○','▲','△','△','☆','☆','☆'])};
+ const DISPLAY_MARKS=${JSON.stringify(DISPLAY_MARKS)};
  const assignIndependentLaboMarks=${assignIndependentLaboMarks.toString()};
  const buildIndependentLaboReview=${buildIndependentLaboReview.toString()};
  const renderIndependentLaboReview=${renderIndependentLaboReview.toString()};
  const mountIndependentLaboReview=${mountIndependentLaboReview.toString()};
+ const lockedEvidenceLines=${lockedEvidenceLines.toString()};
  const mountOwnerMarkSave=${mountOwnerMarkSave.toString()};
  const MARK_PHASES=${JSON.stringify(MARK_PHASES)};const MARK_PHASE_STORAGE_PREFIX=${JSON.stringify(MARK_PHASE_STORAGE_PREFIX)};const serializeRacePreference=${serializeRacePreference.toString()};const markPhaseStorageKey=${markPhaseStorageKey.toString()};const readRememberedMarkPhase=${readRememberedMarkPhase.toString()};
  const MARK_EXPORT_PHASES=${JSON.stringify(MARK_EXPORT_PHASES)};

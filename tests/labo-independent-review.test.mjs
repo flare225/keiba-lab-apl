@@ -50,6 +50,7 @@ test('HTML exposes LABO-only recheck separately and compiles inline browser Java
  assert.match(html,/LABO自身の再精査・予想印/);
  assert.match(html,/labo-roster-ready/);
  assert.match(html,/humanMarksUsedInScore/);
+ assert.ok(html.includes('const DISPLAY_MARKS=["◎","○","▲","△","△","☆"];'));
  for(const m of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(m[1]);
  const health=await(await app.fetch(new Request('https://example.org/health'))).json();
  assert.equal(health.version,VERSION);
