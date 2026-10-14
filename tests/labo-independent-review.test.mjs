@@ -160,3 +160,11 @@ test('LABO copy writes only the reference text and clears its buffer when track 
  await nodes.get('independentLaboCopy').handlers.click();assert.match(copied,/◎ 馬A/);assert.equal(current.state.marks[0].mark,'消');assert.equal(requests,1);
  current.state.track='重';nodes.get('markTrack').handlers.change();assert.equal(nodes.get('independentLaboCopy').disabled,true);assert.equal(nodes.get('independentLaboCopyText').value,'');
 });
+
+test('running position and missing pace evidence appear without changing LABO ranking',()=>{
+ const data=structuredClone(fixture);data.assessment.allRunners[0].assessment.runningStyle={available:true,label:'前方傾向',validPositionRows:3};
+ data.assessment.raceShape={runnerPool:4,coveredRunners:1,frontCandidates:[{horseName:'馬A'}],paceForecast:null,paceReason:'区間ラップ未取得'};
+ const review=buildIndependentLaboReview(data);assert.equal(review.rows[0].laboMark,'◎');
+ const html=renderIndependentLaboReview(review);assert.match(html,/位置取り：前方傾向/);assert.match(html,/位置取り判定 1\/4頭/);assert.match(html,/区間ラップ未取得/);assert.match(html,/参考指数へ加算していません/);
+ assert.match(formatIndependentLaboCopy(review,{date:'2026-10-11',venue:'東京',raceNo:11}),/位置取り 前方傾向・根拠3走/);
+});

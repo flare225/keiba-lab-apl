@@ -226,6 +226,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
     if(!verified)lines.push('\n全馬LABO参考評価：保存版と公式出走馬の対応を確認できず、表示を保留。');
     else{
      lines.push('\n【DB保存時の全馬LABO参考評価】','参考指数・参考印です。精度実績への採用は事前LOCKの検証が必要です。');
+     if(reference.raceShape?.runnerPool===n)lines.push('保存時の位置取り判定 '+reference.raceShape.coveredRunners+'/'+n+'頭 / 想定ペース '+(reference.raceShape.paceForecast||'未判定'));
      for(const x of [...pool].sort((a,b)=>(a.referenceRank??999)-(b.referenceRank??999)||a.horseNo-b.horseNo)){
       const r=rows.find(r=>r.horseNo===x.horseNo),user=marks.find(m=>m.horse_name===x.horseName)?.mark||'無印';
       const finish=Number.isInteger(r.finishPosition)&&r.finishPosition>=1&&r.finishPosition<=n?r.finishPosition:null;
@@ -234,6 +235,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
       const score=typeof x.evidenceScore==='number'&&Number.isFinite(x.evidenceScore)?x.evidenceScore:null;
       const symbol=['◎','○','▲','△','☆'].includes(x.mark)?x.mark:'印保留';
       lines.push(symbol+' '+x.horseNo+'番 '+x.horseName+' / '+(rank?rank+'位'+(x.tiedCount>1?'（同点）':''):'順位保留')+' / '+(score===null?'指数未保存':score+'点')+' / ユーザー '+user+' → '+(terminal||(finish?finish+'着':'結果未取得'))+(finish&&rank&&!terminal?' / 順位差 '+(finish-rank>0?'+':'')+(finish-rank):''));
+      if(x.runningStyle)lines.push('　保存時の位置取り：'+x.runningStyle.label+'（根拠 '+x.runningStyle.validPositionRows+'走） / 実通過 '+(r.cornerPositions||'未取得')+' / 実上がり3F '+(typeof r.last3f==='number'&&Number.isFinite(r.last3f)?r.last3f+'秒':'未取得'));
      }
     }
    }
