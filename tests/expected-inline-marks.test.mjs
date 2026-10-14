@@ -115,3 +115,9 @@ test('training and validation count gates never claim accuracy validation',()=>{
  assert.match(modelValidationSummary({training:{eligibleRaces:30},candidateCreated:false}).stage,/作成前/);
  const v=modelValidationSummary({candidateCreated:true,validation:{races:10,raceDays:2,canReviewCandidate:true},minimumValidationRaces:10,minimumValidationDays:2});assert.match(v.stage,/審査待ち/);assert.match(v.meaning,/未検証/);assert.match(v.progress,/10 \/ 10/);assert.match(modelValidationSummary({}).progress,/未確認/);
 });
+
+test('completed official results open retrospective marks instead of a new pre-race LOCK',()=>{
+ const done={ok:true,ops:{cardComplete:true,prelockAllowed:true,predictionReady:false,nextAction:'CREATE_PRELOCK'},readiness:{resultComplete:true}};
+ const gate=phaseGateMessage('final',done);assert.match(gate.text,/事前LOCKは新規作成できません/);
+ const summary=homeRaceSummary(done);assert.equal(summary.view,'marks');assert.equal(summary.phase,'final');assert.deepEqual(summary.missing,[]);assert.match(summary.next,/事後記録/);
+});
