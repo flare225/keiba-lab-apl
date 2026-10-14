@@ -168,3 +168,11 @@ test('running position and missing pace evidence appear without changing LABO ra
  const html=renderIndependentLaboReview(review);assert.match(html,/位置取り：前方傾向/);assert.match(html,/位置取り判定 1\/4頭/);assert.match(html,/区間ラップ未取得/);assert.match(html,/参考指数へ加算していません/);
  assert.match(formatIndependentLaboCopy(review,{date:'2026-10-11',venue:'東京',raceNo:11}),/位置取り 前方傾向・根拠3走/);
 });
+
+test('complete reference scoring still reports the independently stored prior-detail shortage',async()=>{
+ const nodes=new Map(['independentLaboReview','independentLaboReviewStatus','independentLaboReviewContent','independentLaboReviewRefresh'].map(id=>[id,{textContent:'',innerHTML:'',disabled:false,addEventListener(){}}]));
+ const data=structuredClone(fixture);data.assessment.raceShape={runnerPool:4,coveredRunners:0,frontCandidates:[],paceForecast:null,paceReason:'区間ラップ未取得'};
+ const current={target:{date:'2026-10-12',venue:'京都',raceNo:11},state:{track:'良',rosterVerified:true,roster:['馬A','馬B','馬C','馬D'],rosterNumbers:{},marks:[]}};const calls=[];
+ mountIndependentLaboReview({document:{getElementById:id=>nodes.get(id)},window:{addEventListener(){}},api:'https://test',getCurrent:()=>current,fetcher:async(url)=>{calls.push(url);return{ok:true,json:async()=>url.includes('history-collection-status')?{ok:true,runnerCount:4,totalStoredRows:40,last3fRows:1,runners:[{cornerRows:1},{cornerRows:0},{cornerRows:0},{cornerRows:0}]}:data}}});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(calls.length,2);assert.match(nodes.get('independentLaboReviewStatus').textContent,/過去走 40件／通過順 1件／上がり 1件（未取得あり）/);assert.match(nodes.get('independentLaboReviewContent').innerHTML,/位置取り判定 0\/4頭/);
+});

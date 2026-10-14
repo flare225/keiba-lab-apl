@@ -102,12 +102,17 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
    last=data;const review=buildIndependentLaboReview(data,getCurrent().state.marks,getCurrent().state.rosterNumbers,getCurrent().state.roster);
    content.innerHTML=renderIndependentLaboReview(review);inline(review);if(copy)copy.disabled=false;
    status.textContent=review.complete?'LABO独自の参考仮印を表示（正式DB統合順位ではありません）':'過去走評価 '+review.scored+'/'+review.pool+'頭：履歴不足のためLABO印は保留';
-   if(!review.complete){
+   if(!review.complete||review.raceShape){
     try{
      const qs=new URLSearchParams({date:t.date,venue:t.venue,race_no:String(t.raceNo)});
      const progressResponse=await fetcher(api+'/v1/lab/history-collection-status?'+qs);
      const progress=await progressResponse.json();
      if(n===request&&key(getCurrent()?.target)===currentKey&&progressResponse.ok&&progress.ok){
+      if(progress.runnerCount===review.pool&&Number.isInteger(progress.totalStoredRows)&&Array.isArray(progress.runners)){
+       const corners=progress.runners.reduce((sum,r)=>sum+(Number(r.cornerRows)||0),0),last3f=Number(progress.last3fRows)||0;
+       status.textContent+='。開催日前の過去走 '+progress.totalStoredRows+'件／通過順 '+corners+'件／上がり '+last3f+'件';
+       if(corners<progress.totalStoredRows||last3f<progress.totalStoredRows)status.textContent+='（未取得あり）';
+      }
       const blocked=(progress.runners||[]).filter(r=>/HTTP 403/.test(r.collectionError||''));
       if(blocked.length){
        const retry=blocked.map(r=>r.nextRetryAt).filter(Boolean).sort()[0];
