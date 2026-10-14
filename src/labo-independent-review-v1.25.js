@@ -48,10 +48,16 @@ export function renderIndependentLaboReview(review){
     '<td>'+(r.rank===null?'未取得':esc(r.rank)+'位'+(r.tiedCount>1?'（同点）':''))+' / '+(r.score===null?'未取得':esc(r.score)+'点')+'</td>'+
     '<td>'+esc(r.humanMark)+'</td><td>'+esc(r.comparison)+'</td></tr>').join('')+'</tbody></table></div>';
 }
+export function formatIndependentLaboCopy(review,target){
+ if(!review||!target||!Array.isArray(review.rows)||review.rows.length!==review.pool)throw Error('全馬のLABO参考評価を確認できません。');
+ return ['【LABO参考印】 '+target.date+' '+target.venue+target.raceNo+'R '+(target.raceName||''),'馬場想定：'+(review.track||'未指定'),'過去走からの参考評価です。精度未検証。保存時の予想とは別の再計算です。',...review.rows.map(r=>r.laboMark+' '+(r.horseNo?r.horseNo+'番 ':'')+r.name+' / '+(r.rank===null?'順位保留':r.rank+'位')+' / '+(r.score===null?'指数未取得':r.score+'点')+(r.heldReason?'（'+r.heldReason+'）':''))].join('\n');
+}
 export function mountIndependentLaboReview({document,window,getCurrent,api,fetcher=fetch,now=Date.now}){
  const root=document.getElementById('independentLaboReview'),status=document.getElementById('independentLaboReviewStatus'),
   content=document.getElementById('independentLaboReviewContent'),refresh=document.getElementById('independentLaboReviewRefresh');
  if(!root||!status||!content||!refresh)return;
+ const copy=document.getElementById('independentLaboCopy'),copyText=document.getElementById('independentLaboCopyText');
+ if(copy)copy.disabled=true;
  let request=0,currentKey='',last=null;
  function inline(review=null){
   const byName=new Map((review?.rows||[]).map(r=>[r.name,r]));
@@ -63,17 +69,18 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
  const key=t=>t?.date+'|'+t?.venue+'|'+t?.raceNo;
  function render(){
   const c=getCurrent();if(!c?.target||!last||key(c.target)!==currentKey)return;
-  try{const review=buildIndependentLaboReview(last,c.state.marks,c.state.rosterNumbers,c.state.roster);content.innerHTML=renderIndependentLaboReview(review);inline(review);}
+  try{const review=buildIndependentLaboReview(last,c.state.marks,c.state.rosterNumbers,c.state.roster);content.innerHTML=renderIndependentLaboReview(review);inline(review);if(copy)copy.disabled=false;}
   catch(e){content.textContent='評価を表示できません：'+e.message;}
  }
  async function load(){
   const c=getCurrent(),n=++request;
   if(!c?.target||c.state.rosterVerified!==true||!c.state.roster?.length){
    status.textContent='JRA正式出馬表を読み込み中。馬名と馬番がそろってからLABO自身の評価を取得します。';
-   content.textContent='';last=null;inline();return;
+   content.textContent='';last=null;inline();if(copy)copy.disabled=true;return;
   }
   const t=c.target,track=c.state.track||null,rosterStamp=JSON.stringify(c.state.roster);
   currentKey=key(t);
+  if(copy)copy.disabled=true;if(copyText){copyText.hidden=true;copyText.value='';}
   refresh.disabled=true;status.textContent='LABO自身が全馬の過去走を参考評価中…（自分の印は計算に使いません）';
   try{
    // Legacy comparison requires a mark-shaped input. This dummy hint is NOT the user's selection;
@@ -92,7 +99,7 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
     throw Error('取得したLABO評価の馬場想定が現在の条件と一致しません。');
    if(!response.ok||!data.ok)throw Error(data.error||'全馬の参考評価を取得できません。');
    last=data;const review=buildIndependentLaboReview(data,getCurrent().state.marks,getCurrent().state.rosterNumbers,getCurrent().state.roster);
-   content.innerHTML=renderIndependentLaboReview(review);inline(review);
+   content.innerHTML=renderIndependentLaboReview(review);inline(review);if(copy)copy.disabled=false;
    status.textContent=review.complete?'LABO独自の参考仮印を表示（正式DB統合順位ではありません）':'過去走評価 '+review.scored+'/'+review.pool+'頭：履歴不足のためLABO印は保留';
    if(!review.complete){
     try{
@@ -112,9 +119,16 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
   }catch(e){if(n===request){last=null;content.textContent='';inline();status.textContent='LABO独自評価は取得できません：'+e.message;}}
   finally{if(n===request)refresh.disabled=false;}
  }
+ copy?.addEventListener('click',async()=>{
+  const c=getCurrent();if(!c?.target||!last||key(c.target)!==currentKey)return;
+  try{const review=buildIndependentLaboReview(last,c.state.marks,c.state.rosterNumbers,c.state.roster),text=formatIndependentLaboCopy(review,c.target);
+   if(copyText){copyText.value=text;copyText.hidden=false;}
+   try{await window.navigator.clipboard.writeText(text);status.textContent='LABO参考印をコピーしました。自分の印・DB保存版は変更していません。';}catch{status.textContent='下のLABO参考印を選択してコピーしてください。';copyText?.focus?.();copyText?.select?.();}
+  }catch(e){status.textContent='コピーを保留：'+e.message;}
+ });
  refresh.addEventListener('click',()=>{void load();});
  function discardPending(message){
-  ++request;last=null;currentKey='';content.textContent='';inline();
+  ++request;last=null;currentKey='';content.textContent='';inline();if(copy)copy.disabled=true;if(copyText){copyText.hidden=true;copyText.value='';}
   refresh.disabled=false;status.textContent=message;
  }
  window.addEventListener('labo-target-change',()=>{
