@@ -5,7 +5,8 @@ export function mergeMainRaceTargets(input=[]){
  const original=Array.isArray(input)?input.filter(x=>x&&typeof x==='object'):[];
  const presets=[
   {date:'2026-10-10',venue:'東京',raceNo:11,raceName:'サウジアラビアロイヤルカップ',grade:'GIII'},
-  {date:'2026-10-11',venue:'東京',raceNo:11,raceName:'アイルランドトロフィー',grade:'GII'}
+  {date:'2026-10-11',venue:'東京',raceNo:11,raceName:'アイルランドトロフィー',grade:'GII'},
+  {date:'2026-10-12',venue:'京都',raceNo:11,raceName:'MBS賞スワンステークス',grade:'GII'}
  ];
  const out=original.slice();
  for(const preset of presets){

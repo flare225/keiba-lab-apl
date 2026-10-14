@@ -7,20 +7,21 @@ import app,{VERSION,phaseInlineAvailable,verifiedOfficialRoster} from '../src/in
 const SAUDI='2026-10-10',IRELAND='2026-10-11';
 test('Saudi Arabia RC and Ireland Trophy stay selectable if target discovery is empty',()=>{
  const results=mergeMainRaceTargets([]);
- assert.equal(results.length,2);
+ assert.equal(results.length,3);
  assert.ok(results.some(x=>x.date===SAUDI&&x.venue==='東京'&&x.raceNo===11&&/サウジ/.test(x.raceName)));
  assert.ok(results.some(x=>x.date===IRELAND&&x.venue==='東京'&&x.raceNo===11&&/アイルランド/.test(x.raceName)));
+ assert.ok(results.some(x=>x.date==='2026-10-12'&&x.venue==='京都'&&x.raceNo===11&&/スワン/.test(x.raceName)));
  assert.ok(results.every(x=>x.presetOnly&&x.cardComplete===false));
 });
 test('target discovery never replaces official statuses or duplicates a provided Saudi race',()=>{
  const supplied=[{date:SAUDI,venue:'東京',raceNo:11,raceName:'サウジRC',cardComplete:true,extra:'verified'}];
  const results=mergeMainRaceTargets(supplied);
- assert.equal(results.length,2);
+ assert.equal(results.length,3);
  assert.equal(results[0],supplied[0]);
  assert.equal(results[0].cardComplete,true);
  assert.equal(results[0].extra,'verified');
  assert.equal(results[1].cardComplete,false);
- assert.equal(mergeMainRaceTargets(null).length,2);
+ assert.equal(mergeMainRaceTargets(null).length,3);
 });
 test('pre-draw remains editable, official post_draw/final require verified numbered card',()=>{
  for(const phase of ['initial','post_draw','final']){
