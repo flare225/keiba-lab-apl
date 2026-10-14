@@ -121,3 +121,22 @@ test('switching races while a LABO review is in flight releases the refresh cont
  await new Promise(resolve=>setImmediate(resolve));
  assert.equal(nodes.get('independentLaboReviewContent').innerHTML,'');
 });
+
+test('display symbols match saved reference policy, including same-symbol ties and ranks beyond six',()=>{
+ const rows=[valid('馬A',4,4,2),valid('馬B',4,4,2),valid('馬C',7),valid('馬D',8)];
+ const result=assignIndependentLaboMarks(rows,4,4);
+ assert.equal(result.marks.get('馬A'),'△');assert.equal(result.marks.get('馬B'),'△');
+ assert.equal(result.marks.get('馬C'),'—');assert.equal(result.marks.get('馬D'),'—');
+});
+test('independent comparison appears beside each user input and clears on race change',async()=>{
+ const ids=['independentLaboReview','independentLaboReviewStatus','independentLaboReviewContent','independentLaboReviewRefresh','markTrack'];
+ const nodes=new Map(ids.map(id=>[id,{textContent:'',innerHTML:'',disabled:false,addEventListener(){}}]));
+ const badges=['馬A','馬B','馬C','馬D'].map(name=>({dataset:{laboHorse:name},textContent:''}));
+ const handlers={},window={addEventListener(n,fn){handlers[n]=fn;}};
+ const current={target:{date:'2026-10-11',venue:'東京',raceNo:11},state:{rosterVerified:true,roster:['馬A','馬B','馬C','馬D'],rosterNumbers:{},marks:[{horseName:'馬D',mark:'◎'}],track:'良'}};
+ mountIndependentLaboReview({document:{getElementById:id=>nodes.get(id),querySelectorAll:()=>badges},window,api:'https://test',getCurrent:()=>current,fetcher:async()=>({ok:true,json:async()=>structuredClone(fixture)})});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(badges[0].textContent,'LABO ◎ · 1位');assert.equal(badges[3].textContent,'LABO △ · 4位');
+ assert.equal(current.state.marks[0].mark,'◎');
+ handlers['labo-target-change']();assert.ok(badges.every(x=>x.textContent==='LABO印：評価待ち'));
+});
