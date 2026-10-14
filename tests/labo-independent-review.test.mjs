@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import app,{VERSION} from '../src/index-v1.21.js';
-import {assignIndependentLaboMarks,buildIndependentLaboReview,renderIndependentLaboReview,mountIndependentLaboReview} from '../src/labo-independent-review-v1.25.js';
+import {assignIndependentLaboMarks,buildIndependentLaboReview,renderIndependentLaboReview,formatIndependentLaboCopy,mountIndependentLaboReview} from '../src/labo-independent-review-v1.25.js';
 const valid=(name,rank,history=4,tied=1)=>({horseName:name,referenceRank:rank,tiedCount:tied,assessment:{available:true,validFinishRows:history,evidenceScore:80-rank}});
 const fixture={
  ok:true,race:{date:'2026-10-11'},assessment:{runnerPool:4,scoredRunners:4,trackAssumption:'良',modelVersion:'existing-safe-core',
@@ -140,4 +140,23 @@ test('independent comparison appears beside each user input and clears on race c
  assert.equal(badges[0].textContent,'LABO ◎ · 1位');assert.equal(badges[3].textContent,'LABO △ · 4位');
  assert.equal(current.state.marks[0].mark,'◎');
  handlers['labo-target-change']();assert.ok(badges.every(x=>x.textContent==='LABO印：評価待ち'));
+});
+
+test('LABO export preserves date, track, reference-only status and independently assigned symbols',()=>{
+ const target={date:'2026-10-11',venue:'東京',raceNo:11,raceName:'アイルランドT'};
+ const first=buildIndependentLaboReview(fixture,[{horseName:'馬D',mark:'◎'}]);
+ const second=buildIndependentLaboReview(fixture,[{horseName:'馬D',mark:'消'}]);
+ assert.equal(formatIndependentLaboCopy(first,target),formatIndependentLaboCopy(second,target));
+ const text=formatIndependentLaboCopy(first,target);assert.match(text,/2026-10-11 東京11R/);assert.match(text,/馬場想定：良/);assert.match(text,/◎ 馬A \/ 1位/);assert.match(text,/精度未検証/);
+});
+test('LABO copy writes only the reference text and clears its buffer when track changes',async()=>{
+ const ids=['independentLaboReview','independentLaboReviewStatus','independentLaboReviewContent','independentLaboReviewRefresh','markTrack','independentLaboCopy','independentLaboCopyText'];
+ const nodes=new Map(ids.map(id=>[id,{textContent:'',innerHTML:'',disabled:false,hidden:true,value:'',handlers:{},addEventListener(n,fn){this.handlers[n]=fn;}}]));
+ let copied='',requests=0;
+ const window={addEventListener(){},navigator:{clipboard:{async writeText(text){copied=text;}}}};
+ const current={target:{date:'2026-10-11',venue:'東京',raceNo:11},state:{track:'良',rosterVerified:true,roster:['馬A','馬B','馬C','馬D'],rosterNumbers:{},marks:[{horseName:'馬A',mark:'消'}]}};
+ mountIndependentLaboReview({document:{getElementById:id=>nodes.get(id)},window,api:'https://test',getCurrent:()=>current,fetcher:async()=>{requests++;return {ok:true,json:async()=>structuredClone(fixture)}}});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(nodes.get('independentLaboCopy').disabled,false);
+ await nodes.get('independentLaboCopy').handlers.click();assert.match(copied,/◎ 馬A/);assert.equal(current.state.marks[0].mark,'消');assert.equal(requests,1);
+ current.state.track='重';nodes.get('markTrack').handlers.change();assert.equal(nodes.get('independentLaboCopy').disabled,true);assert.equal(nodes.get('independentLaboCopyText').value,'');
 });
