@@ -32,25 +32,26 @@ export function buildIndependentLaboReview(data,humanMarks=[],numbers={},officia
   return {name:r.horseName,horseNo:source.verified?source.horseNo:null,frameNo:source.verified?source.frameNo:null,
    laboMark:lab,rank,score,tiedCount:r.tiedCount||1,humanMark:own,heldReason,
    comparison:own==='—'?(rank!==null&&rank<=3&&lab!=='保留'&&lab!=='—'?'LABO上位・自分は無印':'印なし'):lab==='保留'?'評価保留':lab==='—'?'LABO選外':lab===own?'印が一致':'評価が異なる',
-   historyRows};
+   historyRows,runningStyle:r.assessment?.runningStyle||null};
  });
  return{...assigned,rows:rows.sort((x,y)=>(x.rank??999)-(y.rank??999)||x.name.localeCompare(y.name,'ja')),
-  track:a.trackAssumption||null,modelVersion:a.modelVersion||'過去走ベースの参考評価',sourceDate:data.race?.date||null};
+  raceShape:a.raceShape||null,track:a.trackAssumption||null,modelVersion:a.modelVersion||'過去走ベースの参考評価',sourceDate:data.race?.date||null};
 }
 export function renderIndependentLaboReview(review){
  const esc=escapeReview;
  const summary='<p class="notice">これはLABOが<strong>人間の印を計算に使わず</strong>過去走から出した「参考仮印」です。正式な統合モデル順位・学習候補の実戦成績・馬券推奨とは区別します。</p>'+
   '<p>評価対象 '+review.scored+'/'+review.pool+'頭 ／ 想定馬場：'+esc(review.track||'未指定')+'</p>'+
   (!review.complete?'<p class="notice">全馬の履歴評価がそろっていません。参考順位は表示しますが、LABO仮印はすべて保留します。</p>':'<p class="notice">印が分かれる同点・有効着順3走未満の馬は仮印を保留します。予想印の並びは仮の評価ルールで、的中率を保証しません。</p>');
- return summary+'<div class="labo-review-scroll"><table class="labo-review-table"><thead><tr><th>馬番・馬名</th><th>LABO仮印</th><th>参考順位・点</th><th>自分の印</th><th>比較</th></tr></thead><tbody>'+
-  review.rows.map(r=>'<tr><th>'+(r.horseNo?esc(r.frameNo)+'枠 '+esc(r.horseNo)+'番 ':'')+esc(r.name)+'</th>'+
+ const shape=review.raceShape,shapeText=shape&&shape.runnerPool===review.pool?'<p>通過順による位置取り判定 '+esc(shape.coveredRunners)+'/'+review.pool+'頭。確認できた前方候補：'+esc((shape.frontCandidates||[]).map(r=>r.horseName).join('、')||'未判定')+'</p><p class="notice">'+esc(shape.paceReason)+'。この根拠は参考指数へ加算していません。</p>':'';
+ return summary+shapeText+'<div class="labo-review-scroll"><table class="labo-review-table"><thead><tr><th>馬番・馬名</th><th>LABO仮印</th><th>参考順位・点</th><th>自分の印</th><th>比較</th></tr></thead><tbody>'+
+  review.rows.map(r=>'<tr><th>'+(r.horseNo?esc(r.frameNo)+'枠 '+esc(r.horseNo)+'番 ':'')+esc(r.name)+(r.runningStyle?'<small style="display:block">位置取り：'+esc(r.runningStyle.label)+'（通過順 '+esc(r.runningStyle.validPositionRows)+'走）</small>':'')+'</th>'+
     '<td><strong>'+esc(r.laboMark)+'</strong>'+(r.heldReason?'<small> '+esc(r.heldReason)+'</small>':'')+'</td>'+
     '<td>'+(r.rank===null?'未取得':esc(r.rank)+'位'+(r.tiedCount>1?'（同点）':''))+' / '+(r.score===null?'未取得':esc(r.score)+'点')+'</td>'+
     '<td>'+esc(r.humanMark)+'</td><td>'+esc(r.comparison)+'</td></tr>').join('')+'</tbody></table></div>';
 }
 export function formatIndependentLaboCopy(review,target){
  if(!review||!target||!Array.isArray(review.rows)||review.rows.length!==review.pool)throw Error('全馬のLABO参考評価を確認できません。');
- return ['【LABO参考印】 '+target.date+' '+target.venue+target.raceNo+'R '+(target.raceName||''),'馬場想定：'+(review.track||'未指定'),'過去走からの参考評価です。精度未検証。保存時の予想とは別の再計算です。',...review.rows.map(r=>r.laboMark+' '+(r.horseNo?r.horseNo+'番 ':'')+r.name+' / '+(r.rank===null?'順位保留':r.rank+'位')+' / '+(r.score===null?'指数未取得':r.score+'点')+(r.heldReason?'（'+r.heldReason+'）':''))].join('\n');
+ return ['【LABO参考印】 '+target.date+' '+target.venue+target.raceNo+'R '+(target.raceName||''),'馬場想定：'+(review.track||'未指定'),'過去走からの参考評価です。精度未検証。保存時の予想とは別の再計算です。',...review.rows.map(r=>r.laboMark+' '+(r.horseNo?r.horseNo+'番 ':'')+r.name+' / '+(r.rank===null?'順位保留':r.rank+'位')+' / '+(r.score===null?'指数未取得':r.score+'点')+(r.heldReason?'（'+r.heldReason+'）':'')+(r.runningStyle?' / 位置取り '+r.runningStyle.label+'・根拠'+r.runningStyle.validPositionRows+'走':''))].join('\n');
 }
 export function mountIndependentLaboReview({document,window,getCurrent,api,fetcher=fetch,now=Date.now}){
  const root=document.getElementById('independentLaboReview'),status=document.getElementById('independentLaboReviewStatus'),

@@ -13,7 +13,7 @@ import {mountOwnerMarkSave} from './mark-owner-client-v1.25.js';
 import {MARK_PHASES,MARK_PHASE_STORAGE_PREFIX,markPhaseStorageKey,readRememberedMarkPhase,serializeRacePreference} from './mark-view-preferences.js';
 import {MARK_EXPORT_PHASES,MARK_EXPORT_LABELS,MARK_EXPORT_CHOICES,parseRace,snapshot,readStored,collectSavedRaceMarks,formatBulkRaceMarks,mountBulkRaceMarkCopy} from './mark-bulk-export-v1.24.js';
 import {PORTABLE_MARK_BACKUP_KIND,PORTABLE_MARK_BACKUP_SCHEMA,TRACK as PORTABLE_TRACK,validDate,safeIso,raceId,normalizeRecord,buildPortableMarkBackup,parsePortableMarkBackup,importPortableMarkBackup,mountPortableMarkBackup} from './mark-portable-backup.js';
-export const VERSION='1.25.5';
+export const VERSION='1.25.6';
 export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={}){
  const input=Number(budget),yen=Number.isFinite(input)&&input>=100?Math.floor(input/100)*100:0,clean=(Array.isArray(marks)?marks:[]).filter(x=>x&&(x.horseName||Number.isInteger(x.horseNo))&&['◎','○','▲','△','☆','注'].includes(x.mark)).slice(0,18).map(x=>({...x,horseName:(Number.isInteger(x.frameNo)?x.frameNo+'枠 ':'')+(Number.isInteger(x.horseNo)?x.horseNo+'番 ':'')+(x.horseName||'')})),by=m=>clean.filter(x=>x.mark===m).map(x=>x.horseName);
  const main=[...by('◎'),...by('○'),...by('▲')].slice(0,6),insurance=[...by('△'),...by('☆'),...by('注')].slice(0,6),items=[],enabled=new Set(Array.isArray(types)?types:['馬連','ワイド','三連複','三連単']);

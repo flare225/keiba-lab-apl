@@ -17,6 +17,7 @@ export function lockedEvidenceLines(records,revision,raceKey,roster){
   if(current.finishPosition!==r.finishPosition||current.finishStatus!==r.finishStatus)currentDiffers=true;
   lines.push((r.referenceMark||'印保留')+' '+r.horseNo+'番 '+r.horseName+' / 固定順位 '+(rank?rank+'位':'未保存')+' / 自分 '+(r.userMark||'無印')+' → '+(terminal[r.finishStatus]||finish+'着')+(r.rankGap===null?'':' / 順位差 '+(r.rankGap>0?'+':'')+r.rankGap));
  }
+ if(e.raceShape)lines.push('固定時の位置取り判定 '+e.raceShape.coveredRunners+'/'+e.raceShape.runnerPool+'頭 / 想定ペース '+(e.raceShape.paceForecast||'未判定'));
  if(currentDiffers)lines.push('照合保存時の結果が、現在の公式結果と異なります。結果訂正後の照合履歴を確認してください。');
  return lines;
 }
