@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mountOwnerMarkSave} from '../src/mark-owner-client-v1.25.js';
 
-function harness({configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false,tokenMatches=true,provenance={status:'retrospective',integrityVerified:true},resultRaceKey='2026-10-11:東京:11',resultRows=null,onResult=null}={}){
+function harness({configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false,tokenMatches=true,provenance={status:'retrospective',integrityVerified:true},resultRaceKey='2026-10-11:東京:11',resultRows=null,onResult=null,savedAudit=null}={}){
  const ids=['ownerMarkDbControls','ownerMarkDbStatus','ownerMarkPassword','ownerMarkLogin',
   'ownerMarkLogout','ownerMarkSave','ownerMarkRestore','ownerMarkLoginRow','ownerMarkReview','ownerMarkReviewReport','ownerMarkLock'];
  const elements=new Map(ids.map(id=>[id,{
@@ -24,7 +24,7 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
  let authenticated=false;
  let remote=existing?{
   phase:current.state.phase,revisionNo:1,revisionId:'old-revision',createdAt:'2026-10-09T23:00:00.000Z',
-  provenance,trackCondition:current.state.track,entries:[{horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]}:null;
+  provenance,audit:savedAudit,trackCondition:current.state.track,entries:[{horse_no:1,horse_name:'馬A',mark:'◎'},{horse_no:2,horse_name:'馬B',mark:'○'}]}:null;
  const calls=[];
  const json=value=>new Response(JSON.stringify(value),{headers:{'content-type':'application/json'}});
  async function fetcher(url,options={}){
@@ -70,6 +70,21 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
  return {elements,window,current,calls,fetcher};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,30));
+test('saved all-runner reference symbols, user marks and official results compare without DB writes',async()=>{
+ const savedAudit={race:{raceKey:'2026-10-11:東京:11'},audit:{marked:[{horseName:'馬A',laboRank:1,laboRankSource:'history-reference-assessment'}],referenceAssessment:{runnerPool:2,allRunners:[{horseNo:1,horseName:'馬A',referenceRank:1,evidenceScore:80,mark:'◎',tiedCount:1},{horseNo:2,horseName:'馬B',referenceRank:2,evidenceScore:70,mark:'○',tiedCount:1}]}}};
+ const h=harness({existing:true,savedAudit});await tick();await h.elements.get('ownerMarkLogin').click();await tick();await h.elements.get('ownerMarkReview').click();
+ const text=h.elements.get('ownerMarkReviewReport').textContent;
+ assert.match(text,/DB保存時の全馬LABO参考評価/);assert.match(text,/保存時LABO参考 1位/);
+ assert.match(text,/◎ 1番 馬A.*ユーザー ◎ → 2着 \/ 順位差 \+1/);
+ assert.match(text,/○ 2番 馬B.*ユーザー ○ → 1着 \/ 順位差 -1/);
+ assert.match(text,/事後にDB保存/);assert.equal(h.calls.filter(x=>x.url.includes('/save')).length,0);
+});
+test('different race or roster assessment is held while saved user mark results remain visible',async()=>{
+ const savedAudit={race:{raceKey:'other'},audit:{referenceAssessment:{runnerPool:2,allRunners:[{horseNo:1,horseName:'別馬'}]}}};
+ const h=harness({existing:true,savedAudit});await tick();await h.elements.get('ownerMarkLogin').click();await tick();await h.elements.get('ownerMarkReview').click();
+ const text=h.elements.get('ownerMarkReviewReport').textContent;
+ assert.match(text,/表示を保留/);assert.doesNotMatch(text,/別馬/);assert.match(text,/◎ 馬A.*→ 2着/);
+});
 test('token mismatch allows connection retry but never sends marks',async()=>{
  const h=harness({tokenMatches:false});await tick();
  await h.elements.get('ownerMarkLogin').click();await tick();
