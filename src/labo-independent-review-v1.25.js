@@ -1,14 +1,15 @@
 const escapeReview=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const finiteReview=n=>typeof n==='number'&&Number.isFinite(n);
-const DISPLAY_MARKS=['◎','○','▲','△','△','☆','☆','☆'];
+const DISPLAY_MARKS=['◎','○','▲','△','△','☆'];
 export function assignIndependentLaboMarks(rows=[],pool=0,scored=0){
- const complete=pool>=2&&scored===pool&&rows.length===pool;
+ const complete=pool>=1&&scored===pool&&rows.length===pool;
  const marks=new Map();
  for(const r of rows){
   const a=r?.assessment||{},rank=r?.referenceRank,ties=r?.tiedCount;
-  // Never mark an incomplete field, invalid evidence, or tied horses as decided picks.
-  const reliable=complete&&a.available===true&&Number(a.validFinishRows)>=3&&finiteReview(a.evidenceScore)&&Number.isInteger(rank)&&rank>=1&&Number.isInteger(ties)&&ties===1;
-  marks.set(r.horseName,reliable?(DISPLAY_MARKS[rank-1]||'—'):'保留');
+  // Same reference-symbol policy as the saved audit: tied spans must share one symbol.
+  const reliable=complete&&a.available===true&&Number(a.validFinishRows)>=3&&finiteReview(a.evidenceScore)&&Number.isInteger(rank)&&rank>=1&&Number.isInteger(ties)&&ties>=1;
+  const symbol=DISPLAY_MARKS[rank-1],lastSymbol=DISPLAY_MARKS[rank+Math.max(1,ties||1)-2];
+  marks.set(r.horseName,reliable?(symbol&&symbol===lastSymbol?symbol:symbol?'保留':'—'):'保留');
  }
  return {complete,marks,scored,pool};
 }
@@ -27,7 +28,7 @@ export function buildIndependentLaboReview(data,humanMarks=[],numbers={},officia
   const score=finiteReview(r.assessment?.evidenceScore)?r.assessment.evidenceScore:null;
   const rank=Number.isInteger(r.referenceRank)&&score!==null?r.referenceRank:null;
   const historyRows=r.assessment?.validFinishRows??null;
-  const heldReason=lab==='保留'?(r.tiedCount>1?'同点で保留':Number(historyRows)<3?'有効着順3走未満':'データ不足・評価未確定'):null;
+  const heldReason=lab==='保留'?(r.tiedCount>1?'同点で保留':Number(historyRows)===0?'開催日前の過去走未取得':Number(historyRows)<3?'有効着順3走未満':'データ不足・評価未確定'):null;
   return {name:r.horseName,horseNo:source.verified?source.horseNo:null,frameNo:source.verified?source.frameNo:null,
    laboMark:lab,rank,score,tiedCount:r.tiedCount||1,humanMark:own,heldReason,
    comparison:own==='—'?(rank!==null&&rank<=3&&lab!=='保留'&&lab!=='—'?'LABO上位・自分は無印':'印なし'):lab==='保留'?'評価保留':lab==='—'?'LABO選外':lab===own?'印が一致':'評価が異なる',
@@ -40,7 +41,7 @@ export function renderIndependentLaboReview(review){
  const esc=escapeReview;
  const summary='<p class="notice">これはLABOが<strong>人間の印を計算に使わず</strong>過去走から出した「参考仮印」です。正式な統合モデル順位・学習候補の実戦成績・馬券推奨とは区別します。</p>'+
   '<p>評価対象 '+review.scored+'/'+review.pool+'頭 ／ 想定馬場：'+esc(review.track||'未指定')+'</p>'+
-  (!review.complete?'<p class="notice">全馬の履歴評価がそろっていません。参考順位は表示しますが、LABO仮印はすべて保留します。</p>':'<p class="notice">同点・有効着順3走未満の馬は仮印を保留します。予想印の並びは仮の評価ルールで、的中率を保証しません。</p>');
+  (!review.complete?'<p class="notice">全馬の履歴評価がそろっていません。参考順位は表示しますが、LABO仮印はすべて保留します。</p>':'<p class="notice">印が分かれる同点・有効着順3走未満の馬は仮印を保留します。予想印の並びは仮の評価ルールで、的中率を保証しません。</p>');
  return summary+'<div class="labo-review-scroll"><table class="labo-review-table"><thead><tr><th>馬番・馬名</th><th>LABO仮印</th><th>参考順位・点</th><th>自分の印</th><th>比較</th></tr></thead><tbody>'+
   review.rows.map(r=>'<tr><th>'+(r.horseNo?esc(r.frameNo)+'枠 '+esc(r.horseNo)+'番 ':'')+esc(r.name)+'</th>'+
     '<td><strong>'+esc(r.laboMark)+'</strong>'+(r.heldReason?'<small> '+esc(r.heldReason)+'</small>':'')+'</td>'+
@@ -52,17 +53,24 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
   content=document.getElementById('independentLaboReviewContent'),refresh=document.getElementById('independentLaboReviewRefresh');
  if(!root||!status||!content||!refresh)return;
  let request=0,currentKey='',last=null;
+ function inline(review=null){
+  const byName=new Map((review?.rows||[]).map(r=>[r.name,r]));
+  for(const node of document.querySelectorAll?.('[data-labo-horse]')||[]){
+   const row=byName.get(node.dataset.laboHorse);
+   node.textContent=row?'LABO '+row.laboMark+' · '+(row.rank===null?'順位未取得':row.rank+'位')+(row.heldReason?'（'+row.heldReason+'）':''):'LABO印：評価待ち';
+  }
+ }
  const key=t=>t?.date+'|'+t?.venue+'|'+t?.raceNo;
  function render(){
   const c=getCurrent();if(!c?.target||!last||key(c.target)!==currentKey)return;
-  try{content.innerHTML=renderIndependentLaboReview(buildIndependentLaboReview(last,c.state.marks,c.state.rosterNumbers,c.state.roster));}
+  try{const review=buildIndependentLaboReview(last,c.state.marks,c.state.rosterNumbers,c.state.roster);content.innerHTML=renderIndependentLaboReview(review);inline(review);}
   catch(e){content.textContent='評価を表示できません：'+e.message;}
  }
  async function load(){
   const c=getCurrent(),n=++request;
   if(!c?.target||c.state.rosterVerified!==true||!c.state.roster?.length){
    status.textContent='JRA正式出馬表を読み込み中。馬名と馬番がそろってからLABO自身の評価を取得します。';
-   content.textContent='';last=null;return;
+   content.textContent='';last=null;inline();return;
   }
   const t=c.target,track=c.state.track||null,rosterStamp=JSON.stringify(c.state.roster);
   currentKey=key(t);
@@ -84,14 +92,29 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
     throw Error('取得したLABO評価の馬場想定が現在の条件と一致しません。');
    if(!response.ok||!data.ok)throw Error(data.error||'全馬の参考評価を取得できません。');
    last=data;const review=buildIndependentLaboReview(data,getCurrent().state.marks,getCurrent().state.rosterNumbers,getCurrent().state.roster);
-   content.innerHTML=renderIndependentLaboReview(review);
-   status.textContent=review.complete?'LABO独自の参考仮印を表示（正式DB統合順位ではありません）':'履歴不足：参考順位のみ。LABO仮印は保留';
-  }catch(e){if(n===request){last=null;content.textContent='';status.textContent='LABO独自評価は取得できません：'+e.message;}}
+   content.innerHTML=renderIndependentLaboReview(review);inline(review);
+   status.textContent=review.complete?'LABO独自の参考仮印を表示（正式DB統合順位ではありません）':'過去走評価 '+review.scored+'/'+review.pool+'頭：履歴不足のためLABO印は保留';
+   if(!review.complete){
+    try{
+     const qs=new URLSearchParams({date:t.date,venue:t.venue,race_no:String(t.raceNo)});
+     const progressResponse=await fetcher(api+'/v1/lab/history-collection-status?'+qs);
+     const progress=await progressResponse.json();
+     if(n===request&&key(getCurrent()?.target)===currentKey&&progressResponse.ok&&progress.ok){
+      const blocked=(progress.runners||[]).filter(r=>/HTTP 403/.test(r.collectionError||''));
+      if(blocked.length){
+       const retry=blocked.map(r=>r.nextRetryAt).filter(Boolean).sort()[0];
+       status.textContent+='。JRAが取得を拒否（403）。過去走補完待ち'+(retry?'／再確認の目安 '+new Date(retry).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'}):'');
+      }
+     }
+    }catch{} // Progress display failure must not hide an otherwise valid assessment.
+   }
+
+  }catch(e){if(n===request){last=null;content.textContent='';inline();status.textContent='LABO独自評価は取得できません：'+e.message;}}
   finally{if(n===request)refresh.disabled=false;}
  }
  refresh.addEventListener('click',()=>{void load();});
  function discardPending(message){
-  ++request;last=null;currentKey='';content.textContent='';
+  ++request;last=null;currentKey='';content.textContent='';inline();
   refresh.disabled=false;status.textContent=message;
  }
  window.addEventListener('labo-target-change',()=>{
