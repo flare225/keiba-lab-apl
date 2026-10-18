@@ -23,3 +23,16 @@ export function markPhaseStorageKey(target){
 export function readRememberedMarkPhase(value){
  return MARK_PHASES.includes(value)?value:'initial';
 }
+
+export function orderRaceTargetsForToday(races,stamp=Date.now()){
+ const today=new Date(stamp+9*3600000).toISOString().slice(0,10),group=r=>r.date===today?0:r.date<today?1:2;
+ return [...races].sort((a,b)=>group(a)-group(b)||(group(a)===1?b.date.localeCompare(a.date):a.date.localeCompare(b.date))||a.venue.localeCompare(b.venue,'ja')||Number(a.raceNo)-Number(b.raceNo));
+}
+export function initialRaceTargetIndex(races,serialized,stamp=Date.now()){
+ const today=new Date(stamp+9*3600000).toISOString().slice(0,10),remembered=findRememberedRaceIndex(races,serialized);
+ if(remembered>=0&&races[remembered].date===today)return remembered;
+ const main=races.findIndex(r=>r.date===today&&Number(r.raceNo)===11&&r.cardComplete);
+ if(main>=0)return main;
+ const first=races.findIndex(r=>r.date===today);if(first>=0)return first;
+ return remembered>=0?remembered:races.length?0:-1;
+}

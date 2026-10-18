@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {findRememberedRaceIndex,serializeRacePreference,markPhaseStorageKey,readRememberedMarkPhase} from '../src/mark-view-preferences.js';
+import {findRememberedRaceIndex,serializeRacePreference,markPhaseStorageKey,readRememberedMarkPhase,orderRaceTargetsForToday,initialRaceTargetIndex} from '../src/mark-view-preferences.js';
 
 const races=[
  {date:'2026-10-11',venue:'東京',raceNo:11},
@@ -32,4 +32,12 @@ test('inlines mark phase storage dependencies into browser code',async()=>{
  const source=await readFile(new URL('../src/index-v1.21.js',import.meta.url),'utf8');
  assert.ok(source.includes('const MARK_PHASE_STORAGE_PREFIX=${JSON.stringify(MARK_PHASE_STORAGE_PREFIX)};'));
  assert.ok(source.includes('const markPhaseStorageKey=${markPhaseStorageKey.toString()};'));
+});
+
+test('today precedes future assumptions and stale future selection does not hide today',()=>{
+ const stamp=Date.parse('2026-10-18T05:00:00Z'),today={date:'2026-10-18',venue:'京都',raceNo:11,cardComplete:true},future={...today,date:'2026-10-25'},other={...today,venue:'東京',raceNo:12};
+ const rows=orderRaceTargetsForToday([future,other,today],stamp);assert.equal(rows[0].date,today.date);assert.equal(rows.at(-1).date,future.date);
+ assert.deepEqual(rows[initialRaceTargetIndex(rows,serializeRacePreference(future),stamp)],today);
+ assert.deepEqual(rows[initialRaceTargetIndex(rows,serializeRacePreference(other),stamp)],other);
+ assert.equal(initialRaceTargetIndex([future],serializeRacePreference(future),stamp),0);
 });
