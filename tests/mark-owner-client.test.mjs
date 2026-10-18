@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mountOwnerMarkSave} from '../src/mark-owner-client-v1.25.js';
 
-function harness({configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false,tokenMatches=true,provenance={status:'retrospective',integrityVerified:true},resultRaceKey='2026-10-11:東京:11',resultRows=null,onResult=null,savedAudit=null,userLock=null,lockedEvidence=[]}={}){
+function harness({onSave=null,configured=true,phase='final',verified=true,existing=false,readRaceKey=null,onRead=null,applyWrongMark=false,tokenMatches=true,provenance={status:'retrospective',integrityVerified:true},resultRaceKey='2026-10-11:東京:11',resultRows=null,onResult=null,savedAudit=null,userLock=null,lockedEvidence=[]}={}){
  const ids=['ownerMarkDbControls','ownerMarkDbStatus','ownerMarkPassword','ownerMarkLogin',
   'ownerMarkLogout','ownerMarkSave','ownerMarkRestore','ownerMarkLoginRow','ownerMarkReview','ownerMarkReviewReport','ownerMarkLock'];
  const elements=new Map(ids.map(id=>[id,{
@@ -44,6 +44,7 @@ function harness({configured=true,phase='final',verified=true,existing=false,rea
    remote={phase:body.phase,revisionNo:rev,revisionId:'revision-'+rev,
     createdAt:'2026-10-10T00:00:00.000Z',trackCondition:body.track||null,
     entries:body.marks.map(m=>({horse_no:m.horseNo??null,horse_name:m.horseName,mark:m.mark}))};
+   if(onSave){const reply=onSave({body,remote});if(reply)return reply;}
    return json({ok:true,stage:'db-written-readback-verified',revisionNo:rev,entryCount:body.marks.length,
     savedAt:'2026-10-10T00:00:00.000Z',verifiedAt:'2026-10-10T00:00:01.000Z'});
   }
@@ -267,4 +268,15 @@ test('review reads the DB lock evidence without writing or recomputing stored sc
  assert.match(h.elements.get('ownerMarkReviewReport').textContent,/事前LOCK版と公式結果のDB照合履歴/);
  assert.ok(h.calls.some(c=>c.url.includes('/locked-mark-results?')&&c.method==='GET'));
  assert.equal(h.calls.filter(c=>c.url.includes('/save')).length,0);
+});
+test('pending readback pauses automatic saves and an unchanged draft resumes with a read instead of a duplicate write',async()=>{
+ const h=harness({onSave:()=>Response.json({ok:false,stage:'db-written-readback-pending',revisionId:'pending-revision',saveMayHaveSucceeded:true,retryWrite:false},{status:503})});
+ await tick();await h.elements.get('ownerMarkLogin').click();await tick();
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/pending-revision/);
+ const before=h.calls.length;
+ h.window.dispatchEvent(new Event('labo-marks-changed'));await tick();
+ assert.equal(h.calls.length,before);assert.match(h.elements.get('ownerMarkDbStatus').textContent,/保留中/);
+ await h.elements.get('ownerMarkSave').click();await tick();
+ assert.equal(h.calls.filter(x=>x.url==='/v1/lab/user-marks/save').length,1);
+ assert.match(h.elements.get('ownerMarkDbStatus').textContent,/既存履歴と一致/);
 });

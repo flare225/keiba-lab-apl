@@ -114,9 +114,14 @@ export async function handleOwnerMarkSave(req,res,fetcher=fetch,env=process.env,
  try{
   const response=await fetcher(UPSTREAM,{method:'POST',redirect:'error',signal:AbortSignal.timeout(25000),
    headers:{authorization:'Bearer '+env.LABO_MARK_DB_WRITE_TOKEN,'content-type':'application/json'},body:JSON.stringify(data)});
+  if([403,429,503].includes(response.status)&&!(response.headers.get('content-type')||'').includes('json'))return output(res,response.status,{ok:false,retryWrite:false,error:'DB保存先への接続が拒否・停止されています。HTTP '+response.status});
   const answer=await readJSON(response);
+  if(answer.stage==='user-mark-save-readback-pending'&&answer.retryWrite===false){
+   const revisionId=typeof answer.revisionId==='string'&&answer.revisionId.length<=200&&answer.revisionId.startsWith(data.date+':'+data.venue+':'+data.raceNo+'|'+data.phase+'|')?answer.revisionId:null;
+   return output(res,503,{ok:false,stage:'db-written-readback-pending',saveMayHaveSucceeded:true,retryWrite:false,revisionId,error:'DB書き込み後の照合待ちです。再保存せず、保存履歴を確認してください。'});
+  }
   if(!response.ok||!answer.ok||answer.stage!=='user-mark-saved-and-crosschecked'||!answer.revisionId)
-   return output(res,response.status===503?503:502,{ok:false,error:answer.error||'正式DB保存が完了しませんでした。'});
+   return output(res,[403,429,503].includes(response.status)?response.status:502,{ok:false,retryWrite:false,error:answer.error||'正式DB保存が完了しませんでした。'});
   const params=new URLSearchParams({date:data.date,venue:data.venue,race_no:String(data.raceNo),phase:data.phase});
   const proof=await fetcher(UPSTREAM+'?'+params,{method:'GET',redirect:'error',signal:AbortSignal.timeout(25000)});
   const checked=await readJSON(proof);
