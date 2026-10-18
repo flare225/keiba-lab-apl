@@ -37,7 +37,7 @@ test('explicit missing formal card opens pre-draw comparison while server errors
 });
 test('history coverage leaves missing runners explicit',()=>{
  const s=historyCoverageSummary({runnerCount:3,withStoredHistory:1,pendingHorses:2,runners:[{horseName:'A',storedRows:8},{horseName:'B',storedRows:0},{horseName:'C',storedRows:0}]});
- assert.deepEqual(s,{total:3,stored:1,pending:2,pendingNames:['B','C']});
+ assert.deepEqual(s,{total:3,stored:1,pending:2,pendingNames:['B','C'],missingNames:['B','C'],refreshNames:[]});
  assert.deepEqual(historyCoverageSummary({runnerCount:2,withStoredHistory:2,runners:[{horseName:'A',storedRows:8},{horseName:'B',storedRows:7}]}).pendingNames,[]);
 });
 
@@ -120,4 +120,9 @@ test('completed official results open retrospective marks instead of a new pre-r
  const done={ok:true,ops:{cardComplete:true,prelockAllowed:true,predictionReady:false,nextAction:'CREATE_PRELOCK'},readiness:{resultComplete:true}};
  const gate=phaseGateMessage('final',done);assert.match(gate.text,/事前LOCKは新規作成できません/);
  const summary=homeRaceSummary(done);assert.equal(summary.view,'marks');assert.equal(summary.phase,'final');assert.deepEqual(summary.missing,[]);assert.match(summary.next,/事後記録/);
+});
+
+test('coverage distinguishes missing history from scheduled refresh and checked-empty',()=>{
+ const s=historyCoverageSummary({runnerCount:3,withStoredHistory:1,pendingHorses:2,runners:[{horseName:'A',storedRows:8,due:true},{horseName:'B',storedRows:0,due:true},{horseName:'C',storedRows:0,due:false,collectionState:'checked-empty'}]});
+ assert.deepEqual(s.refreshNames,['A']);assert.deepEqual(s.missingNames,['B','C']);
 });
