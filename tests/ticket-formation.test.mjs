@@ -76,3 +76,18 @@ test('browser delivers mobile interactive ticket builder and all embedded script
  for(const [,script] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(script);
  assert.equal((await(await app.fetch(new Request('https://example.com/health'))).json()).version,VERSION);
 });
+
+test('draft review previews only new combinations and preserves inputs',async()=>{
+ const {reviewTicketDraft}=await import('../src/ticket-formation-v1.22.js');
+ const config={type:'馬連',method:'nagashi',groups:[[1],[2,3]],roster};
+ const entries=[{type:'馬連',unitStake:100,combos:[[1,2]]}];
+ const before=JSON.stringify({config,entries});const r=reviewTicketDraft(config,entries,100,300);
+ assert.equal(r.ok,true);assert.equal(r.newCount,1);assert.equal(r.duplicateCount,1);assert.equal(r.addedCost,100);assert.equal(r.projectedTotal,200);assert.equal(r.remaining,100);assert.deepEqual(r.fresh,[[1,3]]);assert.deepEqual(r.selections[0],{label:'軸馬（1頭）',horses:[{horseNo:1,horseName:'horse1'}]});assert.equal(JSON.stringify({config,entries}),before);
+});
+test('draft blocks overbudget and all-duplicate tickets before adding',async()=>{
+ const {reviewTicketDraft}=await import('../src/ticket-formation-v1.22.js');
+ const config={type:'三連単',method:'formation',groups:[[1],[2],[3,4]],roster};
+ const over=reviewTicketDraft(config,[],200,300);assert.equal(over.ok,false);assert.equal(over.remaining,-100);assert.match(over.error,/予算/);
+ const repeated=reviewTicketDraft(config,[{type:'三連単',unitStake:100,combos:[[1,2,3],[1,2,4]]}],100,1000);assert.equal(repeated.ok,false);assert.equal(repeated.newCount,0);assert.match(repeated.error,/登録済み/);
+ assert.equal(reviewTicketDraft(config,[],150,1000).ok,false);
+});

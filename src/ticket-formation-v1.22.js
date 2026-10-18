@@ -87,3 +87,16 @@ export function calculateTicketSlip(items=[],budget=0){
  }
  return{ok:total<=yen&&duplicates.length===0,total,count,budget:yen,remaining:yen-total,duplicates,error:duplicates.length?'重複する買い目が含まれます。':total>yen?'設定した予算を超えています。':null};
 }
+
+// Review a draft against the existing slip; no prediction, mark or DB mutation.
+export function reviewTicketDraft(config,entries=[],rawStake=100,budget=0){
+ const built=generateFormationTickets(config),stake=validateTicketStake(rawStake),existing=calculateTicketSlip(entries,budget);
+ const seen=new Set(entries.flatMap(x=>x.combos.map(c=>x.type+':'+c.join('-'))));
+ const fresh=(built.combos||[]).filter(c=>!seen.has(config.type+':'+c.join('-')));
+ const addedCost=stake===null?null:fresh.length*stake;
+ const projectedTotal=addedCost===null?null:existing.total+addedCost;
+ const error=!built.ok?built.error:stake===null?'1点100円以上、100円単位で入力してください。':!existing.ok?existing.error:!fresh.length?'すべて登録済みの買い目です。':projectedTotal>existing.budget?'追加すると予算を超えます。':null;
+ const byNo=new Map((config.roster||[]).map(r=>[r.horseNo,r]));
+ const selections=groupLabels(config.type,config.method).map((label,i)=>({label,horses:(config.groups?.[i]||[]).map(n=>byNo.get(n)).filter(Boolean).map(r=>({horseNo:r.horseNo,horseName:r.horseName}))}));
+ return{ok:!error,error,built,stake,selections,newCount:fresh.length,duplicateCount:(built.count||0)-fresh.length,addedCost,projectedTotal,remaining:projectedTotal===null?null:existing.budget-projectedTotal,fresh};
+}
