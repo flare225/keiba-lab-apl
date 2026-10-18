@@ -176,3 +176,13 @@ test('complete reference scoring still reports the independently stored prior-de
  mountIndependentLaboReview({document:{getElementById:id=>nodes.get(id)},window:{addEventListener(){}},api:'https://test',getCurrent:()=>current,fetcher:async(url)=>{calls.push(url);return{ok:true,json:async()=>url.includes('history-collection-status')?{ok:true,runnerCount:4,totalStoredRows:40,last3fRows:1,runners:[{cornerRows:1},{cornerRows:0},{cornerRows:0},{cornerRows:0}]}:data}}});
  await new Promise(resolve=>setImmediate(resolve));assert.equal(calls.length,2);assert.match(nodes.get('independentLaboReviewStatus').textContent,/過去走 40件／通過順 1件／上がり 1件（未取得あり）/);assert.match(nodes.get('independentLaboReviewContent').innerHTML,/位置取り判定 0\/4頭/);
 });
+
+test('comparison uses one vertical card per runner with escaped marks and evidence',()=>{
+ const review=buildIndependentLaboReview(fixture,[{horseName:'馬A',mark:'◎'}]);
+ const html=renderIndependentLaboReview(review);
+ assert.equal((html.match(/class="labo-runner-comparison"/g)||[]).length,4);
+ assert.doesNotMatch(html,/<table|labo-review-scroll/);
+ assert.match(html,/自分の印<\/span><strong>◎/);
+ const unsafe=renderIndependentLaboReview({...review,rows:[{...review.rows[0],name:'<script>bad</script>',heldReason:'<b>missing</b>'}]});
+ assert.doesNotMatch(unsafe,/<script>|<b>missing/);assert.match(unsafe,/&lt;script&gt;/);
+});

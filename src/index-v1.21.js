@@ -139,11 +139,15 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
 .owner-mark-db input[type=password]{max-width:100%;min-width:0}
 .labo-review-card{border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0;background:var(--panel)}
 .labo-review-card h3{margin:0 0 7px;font-size:16px}
-.labo-review-scroll{width:100%;max-width:100%;overflow-x:auto}
-.labo-review-table{width:100%;min-width:520px;border-collapse:collapse;font-size:13px}
-.labo-review-table th,.labo-review-table td{text-align:left;border-bottom:1px solid var(--line);padding:9px 6px}
-.labo-review-table th:first-child{min-width:145px}
-.labo-review-table td:nth-child(2) strong{font-size:17px}
+ .labo-review-list{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
+.labo-runner-comparison{min-width:0;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--panel2);overflow-wrap:anywhere}
+.labo-runner-comparison h4{margin:0 0 12px;font-size:16px;line-height:1.6}
+.labo-mark-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.labo-mark-pair>div{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;border-radius:9px;background:var(--panel);min-width:0}
+.labo-mark-pair span{font-size:12px}.labo-mark-pair strong{font-size:23px;line-height:1.3}
+.labo-comparison-result{font-weight:700;margin:12px 0 6px;font-size:14px}
+.labo-reference-score{font-size:13px;margin:6px 0;line-height:1.7}
+@media(min-width:900px){.labo-review-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .labo-review-card .notice{font-size:13px;line-height:1.7}
 .user-mark-save{border:1px solid var(--line);border-radius:14px;padding:13px;margin:12px 0;background:var(--panel2)}
 .user-mark-save h3{font-size:17px;margin:0 0 8px}

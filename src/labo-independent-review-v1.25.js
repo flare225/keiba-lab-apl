@@ -43,11 +43,10 @@ export function renderIndependentLaboReview(review){
   '<p>評価対象 '+review.scored+'/'+review.pool+'頭 ／ 想定馬場：'+esc(review.track||'未指定')+'</p>'+
   (!review.complete?'<p class="notice">全馬の履歴評価がそろっていません。参考順位は表示しますが、LABO仮印はすべて保留します。</p>':'<p class="notice">印が分かれる同点・有効着順3走未満の馬は仮印を保留します。予想印の並びは仮の評価ルールで、的中率を保証しません。</p>');
  const shape=review.raceShape,shapeText=shape&&shape.runnerPool===review.pool?'<p>通過順による位置取り判定 '+esc(shape.coveredRunners)+'/'+review.pool+'頭。確認できた前方候補：'+esc((shape.frontCandidates||[]).map(r=>r.horseName).join('、')||'未判定')+'</p><p class="notice">'+esc(shape.paceReason)+'。この根拠は参考指数へ加算していません。</p>':'';
- return summary+shapeText+'<div class="labo-review-scroll"><table class="labo-review-table"><thead><tr><th>馬番・馬名</th><th>LABO仮印</th><th>参考順位・点</th><th>自分の印</th><th>比較</th></tr></thead><tbody>'+
-  review.rows.map(r=>'<tr><th>'+(r.horseNo?esc(r.frameNo)+'枠 '+esc(r.horseNo)+'番 ':'')+esc(r.name)+(r.runningStyle?'<small style="display:block">位置取り：'+esc(r.runningStyle.label)+'（通過順 '+esc(r.runningStyle.validPositionRows)+'走）</small>':'')+'</th>'+
-    '<td><strong>'+esc(r.laboMark)+'</strong>'+(r.heldReason?'<small> '+esc(r.heldReason)+'</small>':'')+'</td>'+
-    '<td>'+(r.rank===null?'未取得':esc(r.rank)+'位'+(r.tiedCount>1?'（同点）':''))+' / '+(r.score===null?'未取得':esc(r.score)+'点')+'</td>'+
-    '<td>'+esc(r.humanMark)+'</td><td>'+esc(r.comparison)+'</td></tr>').join('')+'</tbody></table></div>';
+ return summary+shapeText+'<div class="labo-review-list">'+review.rows.map(r=>{
+  const number=r.horseNo?(r.frameNo?esc(r.frameNo)+'枠 ':'')+esc(r.horseNo)+'番 ':'馬番未確認 ';
+  return '<article class="labo-runner-comparison"><h4>'+number+esc(r.name)+'</h4><div class="labo-mark-pair"><div><span>自分の印</span><strong>'+esc(r.humanMark)+'</strong></div><div><span>LABO仮印</span><strong>'+esc(r.laboMark)+'</strong></div></div><p class="labo-comparison-result">'+esc(r.comparison)+'</p><p class="labo-reference-score">参考順位 '+(r.rank===null?'未取得':esc(r.rank)+'位'+(r.tiedCount>1?'（同点）':''))+' ／ 指数 '+(r.score===null?'未取得':esc(r.score)+'点')+'</p>'+(r.heldReason?'<p class="notice">'+esc(r.heldReason)+'</p>':'')+(r.runningStyle?'<p class="notice">位置取り：'+esc(r.runningStyle.label)+'（通過順 '+esc(r.runningStyle.validPositionRows)+'走）</p>':'')+'</article>';
+ }).join('')+'</div>';
 }
 export function formatIndependentLaboCopy(review,target){
  if(!review||!target||!Array.isArray(review.rows)||review.rows.length!==review.pool)throw Error('全馬のLABO参考評価を確認できません。');
