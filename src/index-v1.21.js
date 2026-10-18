@@ -1,6 +1,6 @@
 import app from './index-v1.19.js';
 import {describeAuditAlignment,summarizeMarkAudit,renderMarkAuditCards} from './mark-audit-cards-v1.22.js';
-import {WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip} from './ticket-formation-v1.22.js';
+import {WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip,reviewTicketDraft} from './ticket-formation-v1.22.js';
 import {mountTicketBuilder} from './ticket-builder-client-v1.22.js';
 import {renderTicketSelectionMatrix} from './ticket-selection-matrix.js';
 import {renderWorkoutEvidence,mountWorkoutEvidence,netkeibaWorkoutReference} from './workout-evidence-ui.js';
@@ -107,6 +107,7 @@ header{flex-wrap:wrap}header>.controls{margin-top:0}
 .labo-comparison-title{font-weight:800;font-size:16px;margin:8px 0}.precard-race-meta{font-size:13px}.precard-explain,.precard-guard{font-size:13px}
 .bet-type-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:10px;min-width:0}.bet-type-grid legend{font-weight:800;padding:0 6px}.bet-type-grid label{display:flex;gap:8px;align-items:center;padding:7px 5px}.bet-type-grid input{min-height:auto;width:19px;height:19px}.bet-rows{display:grid;gap:10px;margin-top:10px}.bet-row{border:1px solid var(--line);border-radius:12px;padding:11px;background:var(--soft)}.bet-row h4{margin:0 0 6px}.bet-label{display:inline-block;margin-bottom:4px;padding:2px 7px;border-radius:999px;background:var(--accent);color:#071018;font-size:11px;font-weight:800}.bet-combos{font-size:13px;color:var(--text);line-height:1.7}.bet-amount{margin-top:7px;font-weight:800;color:var(--accent)}
 .tb-export{width:100%;min-height:140px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text);line-height:1.55;font-size:14px;resize:vertical}.tb-export[hidden]{display:none!important}
+.tb-selection-summary{display:grid;gap:8px;overflow-wrap:anywhere}.tb-selection-summary>div{display:grid;gap:3px;padding:8px;border:1px solid var(--line);border-radius:8px}.tb-selection-summary b{color:var(--muted);font-size:12px}
 .tb-matrix{width:100%;display:grid;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .tb-matrix-row{display:grid;align-items:center;gap:5px;padding:7px 8px;border-bottom:1px solid var(--line);min-width:0}
 .tb-matrix-row:last-child{border-bottom:0}
@@ -501,9 +502,10 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  const generateFormationTickets=${generateFormationTickets.toString()};
  const validateTicketStake=${validateTicketStake.toString()};
  const calculateTicketSlip=${calculateTicketSlip.toString()};
+ const reviewTicketDraft=${reviewTicketDraft.toString()};
  const mountTicketBuilder=${mountTicketBuilder.toString()};
  const renderTicketSelectionMatrix=${renderTicketSelectionMatrix.toString()};
- mountTicketBuilder({document,window,api,getRace:()=>window.getLaboTarget?.(),getMarks:()=>marks(),verifyRoster:verifiedOfficialRoster,WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip,renderTicketSelectionMatrix});
+ mountTicketBuilder({document,window,api,getRace:()=>window.getLaboTarget?.(),getMarks:()=>marks(),verifyRoster:verifiedOfficialRoster,WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip,renderTicketSelectionMatrix,reviewTicketDraft});
  window.addEventListener('labo-target-change',targetChanged);targetChanged();
  mountBulkRaceMarkCopy({document,window,persistCurrent:()=>{saveInline();saveDraft();}});
  mountPortableMarkBackup({document,window,persistCurrent:()=>{saveInline();saveDraft();}});
@@ -555,8 +557,8 @@ export default{async fetch(request,env,ctx){
    <label id="ticketMultiHolder" hidden><input type="checkbox" id="ticketMulti"> マルチ（着順を入替）</label>
    <label id="ticketAxisHolder" hidden>軸の着順<select id="ticketAxisPosition"><option value="1">1着固定</option></select></label>
   </div>
-  <div class="tb-actions"><button class="btn secondary" type="button" id="ticketFromMarks">印から候補をセット</button><button class="btn secondary" type="button" id="ticketResetGroups">馬の選択を解除</button></div>
-  <div class="tb-groups" id="ticketGroups"></div>
+  <div class="tb-actions"><button class="btn secondary" type="button" id="ticketFromMarks">あなたの印から候補を作る</button><button class="btn secondary" type="button" id="ticketResetGroups">馬の選択を解除</button></div>
+  <p class="tb-note">候補の選択 → 点数・追加後の金額を確認 → リストへ追加。買い目の編集で最終印・LOCKは変わりません。「保険」は区分名で、的中や損失補填を保証するものではありません。</p><div class="tb-groups" id="ticketGroups"></div>
   <div id="ticketPreview" class="tb-preview">馬番を選択してください。</div>
   <div class="tb-actions"><button class="btn" type="button" id="ticketAdd" disabled>この買い目を追加</button></div>
   <p id="ticketNotice" class="tb-note" role="status"></p>
