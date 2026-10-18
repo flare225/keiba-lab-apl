@@ -209,3 +209,17 @@ test('owner LOCK without a registered cookie never calls Worker',async()=>{
  const out=response();await handleOwnerSession(req('POST',{action:'lock-user-marks'}),out.res,env,1000,async()=>{throw Error('must not fetch')});
  assert.equal(out.values.code,401);
 });
+test('upstream readback pending keeps the revision ID and stops without another request',async()=>{
+ const stamp=5000,cookie='labo_owner_marks_v1='+createOwnerSession(env.LABO_MARK_SESSION_SECRET,stamp),r=response();let calls=0;
+ await handleOwnerMarkSave(pass(cookie),r.res,async()=>{calls++;return Response.json({ok:false,stage:'user-mark-save-readback-pending',revisionId:'2026-10-11:東京:11|final|2',retryWrite:false},{status:503});},env,stamp+5);
+ assert.equal(calls,1);assert.equal(r.values.code,503);assert.equal(r.values.body.stage,'db-written-readback-pending');
+ assert.equal(r.values.body.revisionId,'2026-10-11:東京:11|final|2');assert.equal(r.values.body.retryWrite,false);assert.equal(r.values.body.saveMayHaveSucceeded,true);
+});
+test('non-JSON upstream blocks preserve 403/429/503 without retry or credential disclosure',async()=>{
+ const stamp=5000,cookie='labo_owner_marks_v1='+createOwnerSession(env.LABO_MARK_SESSION_SECRET,stamp);
+ for(const status of [403,429,503]){
+  const r=response();let calls=0;
+  await handleOwnerMarkSave(pass(cookie),r.res,async()=>{calls++;return new Response('private',{status});},env,stamp+5);
+  assert.equal(calls,1);assert.equal(r.values.code,status);assert.equal(r.values.body.retryWrite,false);assert(!JSON.stringify(r.values.body).includes('private'));
+ }
+});

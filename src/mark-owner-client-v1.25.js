@@ -5,7 +5,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  const state=el('ownerMarkDbStatus'),password=el('ownerMarkPassword'),login=el('ownerMarkLogin'),
   logout=el('ownerMarkLogout'),save=el('ownerMarkSave'),restore=el('ownerMarkRestore'),loginRow=el('ownerMarkLoginRow'),lockButton=el('ownerMarkLock'),review=el('ownerMarkReview'),report=el('ownerMarkReviewReport');
  const recordText=rev=>{if(rev?.userLock?.immutable===true&&rev.userLock.revisionId===rev.revisionId&&rev.provenance?.integrityVerified===true)return 'このDB改訂は事前LOCK済みです（'+new Date(rev.userLock.lockedAt).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})+'）。学習への採用は別工程です。';const p=rev?.provenance;if(p?.status==='retrospective')return '事後にDB保存した記録です。事前予想の精度実績には使いません。';if(p?.status==='verified-prior-day-record'&&p.integrityVerified===true)return '開催日前のDB記録を確認。事前LOCKとは別です。';if(p?.status==='race-day-time-unverified')return '開催当日のDB記録です。発走前の記録かは未確認です。';return '記録時刻・整合性の判定は未確認です。事前LOCKとして扱いません。';};
- let configured=false,authenticated=false,workerWriteTokenMatch=false,working=false,timer=null,lastSaved='',tokenError='',seq=0,pendingSaves=new Map();
+ let configured=false,authenticated=false,workerWriteTokenMatch=false,working=false,timer=null,lastSaved='',savePaused=false,tokenError='',seq=0,pendingSaves=new Map();
  const current=()=>{const c=getCurrent();return c?.target?c:null;};
  const key=c=>[c.target.date,c.target.venue,c.target.raceNo,c.state.phase,c.state.track||'',JSON.stringify(c.state.marks)].join('|');
  const payload=c=>{
@@ -27,10 +27,12 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
  };
  const msg=x=>{state.textContent=x;update();};
  async function prepareCurrentDraft(){
+  if(savePaused)return;
   const c=current();if(!authenticated||!workerWriteTokenMatch||!c||!c.state.marks.length)return;
   const snapshot=key(c),q=new URLSearchParams({date:c.target.date,venue:c.target.venue,race_no:String(c.target.raceNo),phase:c.state.phase});
   try{
    const r=await fetcher('/v1/lab/user-marks?'+q,{credentials:'same-origin',cache:'no-store'});
+   if([403,429,503].includes(r.status))savePaused=true;
    const d=await r.json();
    if(!r.ok||!d.ok||!Array.isArray(d.latest))throw Error(d.error||'DB履歴を確認できません。');
    if(!current()||key(current())!==snapshot)return;
@@ -103,6 +105,8 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   });
  };
  async function persist(force=false,queued=null){
+  if(savePaused&&!force)return;
+  if(force)savePaused=false;
   const c=current();if(!authenticated||!workerWriteTokenMatch||working||(!c&&!queued))return;
   let body;try{body={...(queued?.body||payload(c)),confirm:'SAVE'};}catch(e){if(force&&c)msg('DBへ保存できません：'+e.message);return;}
   const snapshot=queued?.snapshot||key(c);if(!force&&snapshot===lastSaved)return;
@@ -111,6 +115,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
    // Immutable revisions must not grow when the same draft is reopened, re-logged in or restored.
    const qs=new URLSearchParams({date:body.date,venue:body.venue,race_no:String(body.raceNo),phase:body.phase});
    const priorResp=await fetcher('/v1/lab/user-marks?'+qs,{credentials:'same-origin',cache:'no-store'});
+   if([403,429,503].includes(priorResp.status))savePaused=true;
    const prior=await priorResp.json();
    if(!priorResp.ok||!prior.ok||!Array.isArray(prior.latest))throw Error(prior.error||'既存DB保存履歴を確認できません。');
    if(prior.raceKey&&prior.raceKey!==body.date+':'+body.venue+':'+body.raceNo)throw Error('別レースの履歴が返されました。');
@@ -124,7 +129,11 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
     return;
    }
    const r=await fetcher('/v1/lab/user-marks/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-   const d=await r.json();if(!r.ok||!d.ok||d.stage!=='db-written-readback-verified')throw Error(d.error||'保存を確認できません。');
+   if([403,429,503].includes(r.status))savePaused=true;
+   const d=await r.json();
+   if(d.retryWrite===false||d.saveMayHaveSucceeded===true)savePaused=true;
+   if(d.stage==='db-written-readback-pending')throw Error('書き込み後の照合待ち'+(d.revisionId?'（改訂ID '+d.revisionId+'）':'')+'。自動保存を停止しました。保存履歴を確認してください');
+   if(!r.ok||!d.ok||d.stage!=='db-written-readback-verified')throw Error(d.error||'保存を確認できません。');
    if(key(current()||c)===snapshot){
     lastSaved=snapshot;
     msg('DB保存済み・再照合成功：改訂 '+d.revisionNo+'版（'+d.entryCount+'頭）／DB保存日時 '+(d.savedAt||'未取得')+'／照合日時 '+d.verifiedAt+'。※レース前LOCK・学習完了の証明ではありません。');
@@ -139,10 +148,12 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   }
  }
  function scheduleFlush(){
+  if(savePaused)return;
   if(timer!==null)clearTimeout(timer);
   timer=setTimeout(()=>{timer=null;void flushNext();},Math.max(0,Number(scheduleDelay)||0));
  }
  async function flushNext(){
+  if(savePaused)return;
   if(working){scheduleFlush();return;}
   const next=pendingSaves.entries().next().value;
   if(!next)return;
@@ -165,8 +176,8 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   pendingSaves.delete([c.target.date,c.target.venue,c.target.raceNo,c.state.phase].join('|'));
   if(timer!==null)clearTimeout(timer);timer=null;await persist(true);
  });
- window.addEventListener('labo-marks-changed',()=>{if(report)report.textContent='画面の印が変更されました。以下の照合はDB保存版を対象にします。保存後に再照合してください。';const c=current();if(authenticated&&c&&key(c)!==lastSaved){msg(workerWriteTokenMatch?'DB未保存：変更を検出しました。自動保存を開始します。':'DB未保存：保存トークンの確認が完了していません。');if(workerWriteTokenMatch)queue(c);}});
- window.addEventListener('labo-target-change',()=>{if(report)report.textContent='';lastSaved='';msg('対象レースを切り替えました。保存済み履歴と画面の印を確認しています…');void prepareCurrentDraft();});
+ window.addEventListener('labo-marks-changed',()=>{if(report)report.textContent='画面の印が変更されました。以下の照合はDB保存版を対象にします。保存後に再照合してください。';const c=current();if(authenticated&&c&&key(c)!==lastSaved){msg(savePaused?'自動保存を保留中です。DB保存履歴を確認し、保存ボタンから再開してください。':workerWriteTokenMatch?'DB未保存：変更を検出しました。自動保存を開始します。':'DB未保存：保存トークンの確認が完了していません。');if(workerWriteTokenMatch)queue(c);}});
+ window.addEventListener('labo-target-change',()=>{if(report)report.textContent='';lastSaved='';msg(savePaused?'自動保存を保留中です。DB保存履歴を確認し、保存ボタンから再開してください。':'対象レースを切り替えました。保存済み履歴と画面の印を確認しています…');void prepareCurrentDraft();});
  window.addEventListener('labo-roster-ready',()=>{update();});
  restore.addEventListener('click',async()=>{
   const c=current();if(!authenticated||working||!c)return;
