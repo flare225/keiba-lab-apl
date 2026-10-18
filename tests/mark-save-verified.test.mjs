@@ -107,3 +107,11 @@ test('LOCK evidence proxy is fixed-target GET only and never forwards credential
  assert.equal(allowed.data.code,200);assert.deepEqual(allowed.data.value.evidence,[]);
  const denied=response();await handleMarkHistory({...req,method:'POST'},denied.res,()=>{throw Error('must not fetch')},'locked-mark-results');assert.equal(denied.data.code,405);
 });
+
+test('history and locked-result reads retain access-block status with no false empty DB',async()=>{
+ for(const mode of ['user-marks','locked-mark-results'])for(const status of [403,429,503]){
+  const {res,data}=response();let calls=0;
+  await handleMarkHistory({method:'GET',query:{date:'2026-10-10',venue:'東京',race_no:11,phase:'final'}},res,async()=>{calls++;return new Response('private block page',{status});},mode);
+  assert.equal(data.code,status);assert.equal(data.value.stage,'upstream-read-blocked');assert.equal(data.value.retryRead,false);assert.equal(calls,1);assert.equal(data.value.revisions,undefined);assert.doesNotMatch(JSON.stringify(data.value),/private block page/);
+ }
+});

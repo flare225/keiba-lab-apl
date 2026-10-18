@@ -15,6 +15,7 @@ export async function handleMarkHistory(req,res,fetcher=fetch,mode='user-marks')
  try{query=parseMarkHistoryQuery(req.query);}catch(err){return send(res,400,{ok:false,error:err.message});}
  try{
   const response=await fetcher(TARGET+mode+'?'+query.toString(),{method:'GET',redirect:'error',signal:AbortSignal.timeout(25000)});
+  if([403,429,503].includes(response.status)&&!(response.headers.get('content-type')||'').includes('application/json'))return send(res,response.status,{ok:false,stage:'upstream-read-blocked',retryRead:false,upstreamStatus:response.status,error:'DB照会先への接続が拒否・制限されています。保存内容の有無は確認できていません。'});
   if(!(response.headers.get('content-type')||'').includes('application/json'))return send(res,502,{ok:false,error:'LABO DBの応答を読み取れませんでした。'});
   const body=await response.json();
   if(!body||typeof body!=='object')return send(res,502,{ok:false,error:'LABO DBの応答が不正です。'});

@@ -29,6 +29,7 @@ export async function forwardMarkAudit(req,res,mode,fetchImpl=fetch){
    body:JSON.stringify(data),signal:AbortSignal.timeout(25000),redirect:'error'
   });
   const contentType=upstream.headers.get('content-type')||'';
+  if([403,429,503].includes(upstream.status)&&!contentType.includes('application/json'))return res.status(upstream.status).json({ok:false,stage:'upstream-read-blocked',retryRead:false,upstreamStatus:upstream.status,error:'DB照会先への接続が拒否・制限されています。保存内容の有無は確認できていません。'});
   const text=await upstream.text();
   if(!contentType.includes('application/json'))return fail(res,502,'監査APIの応答形式が正しくありません');
   let parsed;try{parsed=JSON.parse(text)}catch{return fail(res,502,'監査APIのJSON応答を読み取れません');}

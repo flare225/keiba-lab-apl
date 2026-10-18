@@ -75,3 +75,10 @@ test('app browser chooses same-origin on Vercel and embedded scripts remain vali
  assert.match(html,/fetch\(auditApi\+'\/v1\/lab\/mark-comparison'/);
  for(const [,script] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Script(script);
 });
+
+test('non-JSON upstream blocks retain status without exposing rejection bodies or retrying',async()=>{
+ for(const status of [403,429,503]){const {res,out}=response();let calls=0;
+ await forwardMarkAudit({method:'POST',body:valid},res,'mark-comparison',async()=>{calls++;return new Response('error code: 1010 private-marker',{status});});
+ assert.equal(out.code,status);assert.equal(out.payload.stage,'upstream-read-blocked');assert.equal(out.payload.retryRead,false);assert.equal(calls,1);assert.doesNotMatch(JSON.stringify(out.payload),/private-marker/);
+ }
+});
