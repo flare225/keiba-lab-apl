@@ -16,5 +16,5 @@ test('remembered history identities survive discovery omissions but invalid date
 });
 test('published page offers a history-to-mark shortcut and restores a discovery-missing selection',async()=>{
  const html=await(await app.fetch(new Request('https://test/'))).text();
- assert.match(html,/このレースの印・LABO比較を開く/);assert.match(html,/ensureRaceTarget\(rs,JSON\.parse\(localStorage/);
+ assert.match(html,/このレースの印・LABO比較を開く/);assert.match(html,/if\(saved\?\.date===today\)ensureRaceTarget\(rs,saved\)/);
 });
