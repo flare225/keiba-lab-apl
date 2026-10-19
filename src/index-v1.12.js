@@ -29,7 +29,8 @@ async function initTargets(){
  if(!selector)return;
  let source=[],fetchError=null;
  const today=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
- try{const d=await get('/v1/lab/targets?from='+today+'&to='+today);source=d.races||[];}catch(e){fetchError=e;}
+ const through=new Date(Date.parse(today+'T00:00:00Z')+6*86400000).toISOString().slice(0,10);
+ try{const d=await get('/v1/lab/targets?from='+today+'&to='+through);source=d.races||[];}catch(e){fetchError=e;}
  const rs=orderRaceTargetsForToday(mergeMainRaceTargets(source));
  try{const saved=JSON.parse(localStorage.getItem(ACTIVE_RACE_STORAGE_KEY)||'null');if(saved?.date===today)ensureRaceTarget(rs,saved);}catch{}
  selector.innerHTML=rs.map((x,i)=>'<option value="'+i+'">'+esc(x.date+' '+x.venue+x.raceNo+'R '+(x.raceName||x.grade||'')+(x.presetOnly?' · 保存確認待ち':x.cardComplete?' ✓':''))+'</option>').join('');
