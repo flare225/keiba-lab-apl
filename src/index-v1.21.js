@@ -1,3 +1,4 @@
+import {renderAutomaticPrediction,mountAutomaticPrediction} from './automatic-prediction-view.js';
 import app from './index-v1.19.js';
 import {describeAuditAlignment,summarizeMarkAudit,renderMarkAuditCards} from './mark-audit-cards-v1.22.js';
 import {WAGER_TYPES,ticketMethodOptions,groupLabels,generateFormationTickets,validateTicketStake,calculateTicketSlip,reviewTicketDraft} from './ticket-formation-v1.22.js';
@@ -590,5 +591,5 @@ export default{async fetch(request,env,ctx){
   '<div class="tab" data-id="bets"><b>￥</b>買い目</div>'+
   '</div></div>';
  html=html.slice(0,navStart)+navMarkup+html.slice(navEnd+'</div></div></div>'.length);
- return new Response(html.replace('<div class="k">サウジRC</div>','<div class="k">アイルランドT</div>').replace('</body>',enhancement+'</body>'),{status:r.status,headers:r.headers});
+ return new Response(html.replace('<div class="k">サウジRC</div>','<div class="k">アイルランドT</div>').replace('</body>',enhancement+'<script>('+mountAutomaticPrediction.toString()+')({window,document,api:API,render:'+renderAutomaticPrediction.toString()+'});</script></body>'),{status:r.status,headers:r.headers});
 }};
