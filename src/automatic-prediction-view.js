@@ -7,7 +7,7 @@ export function renderAutomaticPrediction(data){
 }
 export function mountAutomaticPrediction({window,document,api,render}){
  const parent=document.getElementById('genericOpsPanel');if(!parent)return;
- const box=document.createElement('section');box.className='card';box.id='automaticLaboPrediction';box.innerHTML='<h3>LABO自動事前予想</h3><div data-auto-body>対象レース確認中…</div>';parent.insertAdjacentElement('afterend',box);const body=box.querySelector('[data-auto-body]');let seq=0;
+ const box=document.createElement('div');box.className='card';box.id='automaticLaboPrediction';box.innerHTML='<h3>LABO自動事前予想</h3><div data-auto-body>対象レース確認中…</div>';parent.insertAdjacentElement('afterend',box);const body=box.querySelector('[data-auto-body]');let seq=0;
  async function load(){const t=window.getLaboTarget?.(),n=++seq;if(!t)return;body.textContent='保存済み事前予想を確認中…';try{const q=new URLSearchParams({date:t.date,venue:t.venue,race_no:String(t.raceNo)});const res=await window.fetch(api+'/v1/lab/automatic-prediction?'+q);if(!res.ok)throw Error('保存状態を取得できません');const data=await res.json();if(n===seq)body.innerHTML=render(data)}catch{if(n===seq)body.textContent='自動予想の保存状態を確認できません。';}}
  window.addEventListener('labo-target-change',load);void load();
 }
