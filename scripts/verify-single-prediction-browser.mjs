@@ -30,6 +30,7 @@ await page.route('**/*',async route=>{
 try{
  await page.goto('https://keiba-lab-apl.vercel.app/',{waitUntil:'domcontentloaded',timeout:45000});
  await page.waitForFunction(()=>typeof window.getLaboTarget==='function');
+ await page.locator('.tab[data-id="race"]').click();
  // Use the application's target-change event; all other page APIs stay intercepted.
  await page.evaluate(t=>{window.getLaboTarget=()=>t;window.dispatchEvent(new Event('labo-target-change'));},target);
  const box=page.locator('#automaticLaboPrediction');await page.waitForFunction(hash=>document.querySelector('#automaticLaboPrediction')?.dataset.snapshotSha256===hash,data.snapshotSha256,{timeout:20000});
