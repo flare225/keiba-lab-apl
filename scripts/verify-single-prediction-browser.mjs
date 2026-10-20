@@ -3,14 +3,15 @@
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-const target={date:'2026-10-25',venue:'京都',raceNo:11},raceKey=`${target.date}:${target.venue}:${target.raceNo}`,live=process.env.LIVE_READBACK==='true';
+import {predictionVerificationTarget,predictionTargetLabel} from './prediction-verification-target.mjs';
+const target=predictionVerificationTarget(process.env.LABO_VERIFICATION_TARGET),targetLabel=predictionTargetLabel(target),raceKey=`${target.date}:${target.venue}:${target.raceNo}`,live=process.env.LIVE_READBACK==='true';
 const out='single-prediction-evidence';await mkdir(out,{recursive:true});let data,liveApiReads=0;
 if(live){
  if(Date.now()<Date.parse('2026-10-21T00:00:00Z'))throw Error('Known D1 quota day: live readback is blocked until next UTC day.');
  const q=new URLSearchParams({date:target.date,venue:target.venue,race_no:String(target.raceNo)});liveApiReads++;
  const response=await fetch('https://keiba-lab-api.sekai-no-bancyou.workers.dev/v1/lab/automatic-prediction?'+q,{redirect:'error',signal:AbortSignal.timeout(15000)});if(!response.ok)throw Error('Single live readback failed HTTP '+response.status+'; no retry');data=await response.json();if(data.ok!==true||data.available!==true||data.integrityVerified!==true)throw Error('No verified saved prediction; no retries or reconstructed predictions');
 }else{
- const snapshot={race:{...target,raceKey,runnerCount:2},savedAt:'2026-10-23T00:00:00Z',modelVersion:'synthetic-browser-test-only',card:[{horse_no:1,horse_name:'検証専用馬A',frame_no:1},{horse_no:2,horse_name:'検証専用馬B',frame_no:2}],runners:[{horseNo:1,horseName:'検証専用馬A',rank:1,score:80,mark:'◎'},{horseNo:2,horseName:'検証専用馬B',rank:2,score:70,mark:'○'}],guardrails:{humanMarksUsed:false,targetResultUsed:false,immutable:true}};
+ const snapshot={race:{...target,raceKey,runnerCount:2},savedAt:new Date(Date.parse(target.date+'T00:00:00Z')-86400000).toISOString(),modelVersion:'synthetic-browser-test-only',card:[{horse_no:1,horse_name:'検証専用馬A',frame_no:1},{horse_no:2,horse_name:'検証専用馬B',frame_no:2}],runners:[{horseNo:1,horseName:'検証専用馬A',rank:1,score:80,mark:'◎'},{horseNo:2,horseName:'検証専用馬B',rank:2,score:70,mark:'○'}],guardrails:{humanMarksUsed:false,targetResultUsed:false,immutable:true}};
  data={ok:true,available:true,integrityVerified:true,snapshot,snapshotSha256:createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')};
 }
 await writeFile(out+'/readback.json',JSON.stringify({source:live?'single-live-DB-readback':'synthetic-not-DB-data',data},null,2));
@@ -32,8 +33,8 @@ try{
  await page.waitForFunction(()=>typeof window.getLaboTarget==='function');
  await page.locator('.tab[data-id="race"]').click();
  // Select the real application target control; do not replace its target getter.
- await page.waitForFunction(()=>Array.from(document.querySelectorAll('#raceTarget option')).some(x=>x.textContent.includes('2026-10-25 京都11R')));
- const option=await page.locator('#raceTarget option').evaluateAll(xs=>xs.find(x=>x.textContent.includes('2026-10-25 京都11R')).value);
+ await page.waitForFunction(label=>Array.from(document.querySelectorAll('#raceTarget option')).some(x=>x.textContent.includes(label)),targetLabel);
+ const option=await page.locator('#raceTarget option').evaluateAll((xs,label)=>xs.find(x=>x.textContent.includes(label)).value,targetLabel);
  await page.locator('#raceTarget').selectOption(option);
  await page.waitForFunction(t=>{const current=window.getLaboTarget?.();return current?.date===t.date&&current?.venue===t.venue&&current?.raceNo===t.raceNo;},target);
  const box=page.locator('#automaticLaboPrediction');await page.waitForFunction(hash=>document.querySelector('#automaticLaboPrediction')?.dataset.snapshotSha256===hash,data.snapshotSha256,{timeout:20000});
@@ -41,7 +42,7 @@ try{
  const expected=data.snapshot.runners.map(r=>({horseNo:r.horseNo,rank:r.rank,score:r.score,mark:r.mark||''}));if(JSON.stringify(displayed)!==JSON.stringify(expected))throw Error('Rendered rank/score/mark differs from independent readback');
  const text=await box.innerText();for(const r of data.snapshot.runners)if(!text.includes(r.horseName))throw Error('Horse name missing from rendered prediction');
  await box.screenshot({path:out+'/saved-prediction.png'});
- if(!live){mode='corrupt';await page.evaluate(()=>window.dispatchEvent(new Event('labo-target-change')));await page.waitForFunction(()=>document.querySelector('#automaticLaboPrediction')?.textContent.includes('確認できません'));if(await box.getAttribute('data-snapshot-sha256'))throw Error('Corrupt prediction retained verified badge');mode='good';const other=await page.locator('#raceTarget option').evaluateAll(xs=>xs.find(x=>x.textContent.includes('2026-10-25 東京11R')).value);await page.locator('#raceTarget').selectOption(other);await page.waitForFunction(()=>document.querySelector('#automaticLaboPrediction')?.textContent.includes('確認できません'));if(await box.getAttribute('data-snapshot-sha256'))throw Error('Wrong target retained verified badge');}
+ if(!live){mode='corrupt';await page.evaluate(()=>window.dispatchEvent(new Event('labo-target-change')));await page.waitForFunction(()=>document.querySelector('#automaticLaboPrediction')?.textContent.includes('確認できません'));if(await box.getAttribute('data-snapshot-sha256'))throw Error('Corrupt prediction retained verified badge');mode='good';const other=await page.locator('#raceTarget option').evaluateAll((xs,label)=>xs.find(x=>x.value&&!x.textContent.includes(label)).value,targetLabel);await page.locator('#raceTarget').selectOption(other);await page.waitForFunction(()=>document.querySelector('#automaticLaboPrediction')?.textContent.includes('確認できません'));if(await box.getAttribute('data-snapshot-sha256'))throw Error('Wrong target retained verified badge');}
  if(errors.length)throw Error('Browser page errors: '+errors.join(';'));
  result={ok:true,source:live?'single-live-DB-readback':'synthetic-not-DB-data',raceKey,snapshotSha256:data.snapshotSha256,displayed,liveApiReads,liveWrites:0,forwardedBrowserApiReads:0,apiIntercepts,rootReads,pageErrors:errors,productionPersistenceProven:live,firstRaceAcquisitionAndCaptureProven:false};console.log('SINGLE_PREDICTION_BROWSER',JSON.stringify(result));
 }finally{await writeFile(out+'/result.json',JSON.stringify(result||{ok:false,source:live?'single-live-DB-readback':'synthetic-not-DB-data',liveApiReads,rootReads,pageErrors:errors},null,2));await browser.close();}

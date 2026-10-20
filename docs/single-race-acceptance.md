@@ -1,6 +1,7 @@
-# 最初の1レースの完了条件
+# 全開催共通処理の完了条件
 
-対象: 2026-10-25 京都11R 菊花賞。正式カードの公開・保存状態は未確認。
+対象は全JRA開催場・全レース。菊花賞は優先対象の一つで、専用機能ではない。
+複数開催場/複数Rの共通処理確認後、全開催へ展開する。正式カードの本番保存状態は未確認。
 
 2026-10-20のD1読取上限到達後は同UTC日に再照会しない。
 現在、取得→本番DB保存→独立GET→本番画面一致の一連の成功証跡はない。
@@ -15,10 +16,10 @@
 
 ## 検証スクリプト
 
-`node scripts/verify-single-prediction-browser.mjs` は本番HTMLを使うが、APIはすべて遮断して
+`LABO_VERIFICATION_TARGET='<date/venue/raceNoのJSON>' node scripts/verify-single-prediction-browser.mjs` は本番HTMLを使うが、APIはすべて遮断して
 合成の2頭を表示する。表示一致・破損・別レース拒否を検証し、DB成果を証明しない。
 
-`LIVE_READBACK=true node scripts/verify-single-prediction-browser.mjs` は、対象1Rの自動予想を
+`LIVE_READBACK=true LABO_VERIFICATION_TARGET='<date/venue/raceNoのJSON>' node scripts/verify-single-prediction-browser.mjs` は、対象1Rの自動予想を
 独立GETで1回だけ取得する。全件監査・POST・自動リトライをしない。そのJSONを本番HTMLへ渡し、
 表示された全馬の順位・スコア・印・馬名とハッシュを照合し、JSON/スクリーンショットを保存する。
 既知の上限日の2026-10-20にはこのモードを拒否する。翌日になっただけで回復確認と扱わず、
@@ -29,3 +30,8 @@
 各段階の保存件数と出典を記録し、欠損があればその項目は未完了とする。
 
 2026-10-20今回: 本番データ取得/保存/独立GETは0。最初の1Rの完全動作は未完了。
+
+対象設定は必須で、未指定時に菊花賞へフォールバックしない。JRA全10場と1〜12Rを共通入力検証する。
+合成ブラウザ検証は設定matrixの東京9R・京都11R・新潟1Rで実行する（実データではない）。
+本番モードは指定1Rあたり独立GET1回のみ。全件走査・自動取得の実装ではない。
+菊花賞待ちで他開催の想定名簿・過去走補完を止めない。平場取得は10/21の指示を維持する。
