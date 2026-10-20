@@ -57,6 +57,13 @@ export function mountMarkSaving({document,window,getCurrent,verifiedMarkPayload,
    const r=await fetch('/v1/lab/user-marks?'+p.toString(),{cache:'no-store'});
    const body=await r.json();
    if(seq!==request||!current()||stateKey(current())!==before)return;
+   if(r.status===404&&/race not found/i.test(body.error||'')){
+    const pendingResponse=await fetch('/v1/lab/race-ops?'+p.toString(),{cache:'no-store'}),pending=await pendingResponse.json();
+    if(seq!==request||!current()||stateKey(current())!==before)return;
+    if(pendingResponse.ok&&pending.status==='awaiting-official-card'){
+     lastRemote=null;dbState.textContent='正式出馬表は未保存です。印の正式DB保存・事前LOCKは保留です。保存履歴0件とは判定していません。';return;
+    }
+   }
    if(!r.ok||!body.ok)throw Error(body.error||'DB履歴を読み取れません');
    lastRemote={key:before,data:body,checkedAt:stamp()};
   }catch(e){
