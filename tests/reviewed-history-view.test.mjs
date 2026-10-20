@@ -4,9 +4,9 @@ const fact={horse_name:'馬<script>',race_date:'2026-09-01',venue:'新潟',race_
 const data={available:true,integrityVerified:true,storedRows:1,rows:[fact],sourceUrl:'https://race.netkeiba.com/',observedAt:'2026-10-20'};
 test('source-separated stored histories expose times, sectionals and corners without user marks',()=>{const h=renderReviewedHistory(data);assert.match(h,/1頭・1走/);assert.match(h,/上がり3F 32.1/);assert.match(h,/通過 3/);assert.match(h,/0:55.4/);assert.match(h,/印を付けず/);assert.ok(!h.includes('<script>'));assert.match(renderReviewedHistory({...data,integrityVerified:false}),/確認できません/);assert.match(renderReviewedHistory({available:false}),/未保存/);});
 test('old history responses cannot replace another race after a target change',async()=>{
- const handlers={},boxes=[];let target={date:'2026-10-25',venue:'新潟',raceNo:11},resolve;
+ const handlers={},boxes=[];let target={date:'2026-10-25',venue:'新潟',raceNo:11};const pending=[];
  const roster={querySelector(s){return s.startsWith('select')?{}:null},append(b){boxes.push(b)}};
  const document={getElementById(id){return id==='expectedInlineRoster'?roster:boxes.at(-1)},createElement(){return{isConnected:true,remove(){this.isConnected=false}}}};
- const window={getLaboTarget:()=>target,addEventListener(n,f){handlers[n]=f},fetch:()=>new Promise(r=>{resolve=r})};
- mountReviewedHistory({window,document,api:'https://api.test',render:renderReviewedHistory});assert.equal(boxes.length,1);target={...target,raceNo:9};handlers['labo-target-change']();resolve({ok:true,json:async()=>({ok:true,...data})});await new Promise(r=>setImmediate(r));assert.equal(boxes[0].innerHTML,undefined);
+ const window={getLaboTarget:()=>target,addEventListener(n,f){handlers[n]=f},fetch:()=>new Promise(r=>{pending.push(r)})};
+ mountReviewedHistory({window,document,api:'https://api.test',render:renderReviewedHistory});assert.equal(boxes.length,1);target={...target,raceNo:9};handlers['labo-target-change']();pending[0]({ok:true,json:async()=>({ok:true,...data})});await new Promise(r=>setImmediate(r));assert.equal(boxes[0].innerHTML,undefined);assert.equal(pending.length,2);pending[1]({ok:true,json:async()=>({ok:true,...data})});await new Promise(r=>setImmediate(r));assert.match(boxes[1].innerHTML,/1頭・1走/);
 });
