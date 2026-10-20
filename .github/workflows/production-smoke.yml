@@ -164,6 +164,18 @@ jobs:
   prediction-browser:
     if: github.event_name == 'push' && contains(github.event.head_commit.message, '事前予想の画面照合')
     needs: smoke
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - venue: 東京
+            raceNo: 9
+          - venue: 京都
+            raceNo: 11
+          - venue: 新潟
+            raceNo: 1
+    env:
+      LABO_VERIFICATION_TARGET: '{"date":"2026-10-25","venue":"${{ matrix.venue }}","raceNo":${{ matrix.raceNo }}}'
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -177,6 +189,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: single-prediction-browser-synthetic
+          name: prediction-browser-synthetic-${{ matrix.venue }}-${{ matrix.raceNo }}
           path: single-prediction-evidence/
           retention-days: 7
