@@ -160,3 +160,23 @@ jobs:
           name: listing-without-db
           path: listing-evidence/
           retention-days: 7
+
+  prediction-browser:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '事前予想の画面照合')
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: npm install --no-save --package-lock=false playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - name: Verify deployed prediction UI using synthetic data with no live API calls
+        run: node scripts/verify-single-prediction-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: single-prediction-browser-synthetic
+          path: single-prediction-evidence/
+          retention-days: 7
