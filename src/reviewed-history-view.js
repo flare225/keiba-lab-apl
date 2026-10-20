@@ -8,6 +8,6 @@ export function renderReviewedHistory(data){
 export function mountReviewedHistory({window,document,api,render}){
  let seq=0;const key=t=>t?`${t.date}:${t.venue}:${t.raceNo}`:'';
  async function load(){const n=++seq,t=window.getLaboTarget?.(),roster=document.getElementById('expectedInlineRoster');if(!t||!roster?.querySelector('select[data-horse-name]'))return;let box=roster.querySelector('#reviewedHistory');if(!box){box=document.createElement('div');box.id='reviewedHistory';box.className='card';roster.append(box);}box.textContent='補完履歴を確認中…';try{const q=new URLSearchParams({date:t.date,venue:t.venue,race_no:String(t.raceNo)}),res=await window.fetch(api+'/v1/lab/reviewed-upcoming-history?'+q),data=await res.json();if(n!==seq||key(t)!==key(window.getLaboTarget?.())||!box.isConnected)return;if(!res.ok||!data.ok){box.textContent='対象レースの補完履歴は未保存、または確認できません。';return;}box.innerHTML=render(data);}catch{if(n===seq&&key(t)===key(window.getLaboTarget?.())&&box.isConnected)box.textContent='補完履歴の保存状態を確認できません。';}}
- window.addEventListener('labo-target-change',()=>{seq++;document.getElementById('reviewedHistory')?.remove();});
+ window.addEventListener('labo-target-change',()=>{seq++;document.getElementById('reviewedHistory')?.remove();void load();});
  window.addEventListener('labo-roster-ready',load);void load();
 }
