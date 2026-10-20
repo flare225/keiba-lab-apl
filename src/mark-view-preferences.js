@@ -25,8 +25,8 @@ export function readRememberedMarkPhase(value){
 }
 
 export function orderRaceTargetsForToday(races,stamp=Date.now()){
- const today=new Date(stamp+9*3600000).toISOString().slice(0,10),group=r=>r.date===today?0:r.date<today?1:2;
- return [...races].sort((a,b)=>group(a)-group(b)||(group(a)===1?b.date.localeCompare(a.date):a.date.localeCompare(b.date))||a.venue.localeCompare(b.venue,'ja')||Number(a.raceNo)-Number(b.raceNo));
+ const today=new Date(stamp+9*3600000).toISOString().slice(0,10),group=r=>r.date===today?0:r.date>today?1:2;
+ return [...races].sort((a,b)=>group(a)-group(b)||(group(a)===2?b.date.localeCompare(a.date):a.date.localeCompare(b.date))||a.venue.localeCompare(b.venue,'ja')||Number(a.raceNo)-Number(b.raceNo));
 }
 export function initialRaceTargetIndex(races,serialized,stamp=Date.now()){
  const today=new Date(stamp+9*3600000).toISOString().slice(0,10),remembered=findRememberedRaceIndex(races,serialized);
@@ -34,5 +34,8 @@ export function initialRaceTargetIndex(races,serialized,stamp=Date.now()){
  const main=races.findIndex(r=>r.date===today&&Number(r.raceNo)===11&&r.cardComplete);
  if(main>=0)return main;
  const first=races.findIndex(r=>r.date===today);if(first>=0)return first;
+ if(remembered>=0&&races[remembered].date>today)return remembered;
+ const upcoming=races.filter(r=>r.date>today).map(r=>r.date).sort()[0];
+ if(upcoming){const main=races.findIndex(r=>r.date===upcoming&&Number(r.raceNo)===11);return main>=0?main:races.findIndex(r=>r.date===upcoming);}
  return remembered>=0?remembered:races.length?0:-1;
 }
