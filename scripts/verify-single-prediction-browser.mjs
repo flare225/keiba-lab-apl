@@ -30,14 +30,18 @@ await page.route('**/*',async route=>{
 try{
  await page.goto('https://keiba-lab-apl.vercel.app/',{waitUntil:'domcontentloaded',timeout:45000});
  await page.waitForFunction(()=>typeof window.getLaboTarget==='function');
- // Use the application's target-change event; all other page APIs stay intercepted.
- await page.evaluate(t=>{window.getLaboTarget=()=>t;window.dispatchEvent(new Event('labo-target-change'));},target);
+ await page.locator('.tab[data-id="race"]').click();
+ // Select the real application target control; do not replace its target getter.
+ await page.waitForFunction(()=>Array.from(document.querySelectorAll('#raceTarget option')).some(x=>x.textContent.includes('2026-10-25 京都11R')));
+ const option=await page.locator('#raceTarget option').evaluateAll(xs=>xs.find(x=>x.textContent.includes('2026-10-25 京都11R')).value);
+ await page.locator('#raceTarget').selectOption(option);
+ await page.waitForFunction(t=>{const current=window.getLaboTarget?.();return current?.date===t.date&&current?.venue===t.venue&&current?.raceNo===t.raceNo;},target);
  const box=page.locator('#automaticLaboPrediction');await page.waitForFunction(hash=>document.querySelector('#automaticLaboPrediction')?.dataset.snapshotSha256===hash,data.snapshotSha256,{timeout:20000});
  const displayed=await box.locator('[data-auto-horse]').evaluateAll(xs=>xs.map(x=>({horseNo:Number(x.dataset.autoHorse),rank:Number(x.dataset.autoRank),score:Number(x.dataset.autoScore),mark:x.dataset.autoMark})));
  const expected=data.snapshot.runners.map(r=>({horseNo:r.horseNo,rank:r.rank,score:r.score,mark:r.mark||''}));if(JSON.stringify(displayed)!==JSON.stringify(expected))throw Error('Rendered rank/score/mark differs from independent readback');
  const text=await box.innerText();for(const r of data.snapshot.runners)if(!text.includes(r.horseName))throw Error('Horse name missing from rendered prediction');
  await box.screenshot({path:out+'/saved-prediction.png'});
- if(!live){mode='corrupt';await page.evaluate(()=>window.dispatchEvent(new Event('labo-target-change')));await page.waitForFunction(()=>document.querySelector('#automaticLaboPrediction')?.textContent.includes('確認できません'));if(await box.getAttribute('data-snapshot-sha256'))throw Error('Corrupt prediction retained verified badge');mode='good';await page.evaluate(t=>{window.getLaboTarget=()=>({...t,venue:'東京'});window.dispatchEvent(new Event('labo-target-change'));},target);await page.waitForFunction(()=>document.querySelector('#automaticLaboPrediction')?.textContent.includes('確認できません'));if(await box.getAttribute('data-snapshot-sha256'))throw Error('Wrong target retained verified badge');}
+ if(!live){mode='corrupt';await page.evaluate(()=>window.dispatchEvent(new Event('labo-target-change')));await page.waitForFunction(()=>document.querySelector('#automaticLaboPrediction')?.textContent.includes('確認できません'));if(await box.getAttribute('data-snapshot-sha256'))throw Error('Corrupt prediction retained verified badge');mode='good';const other=await page.locator('#raceTarget option').evaluateAll(xs=>xs.find(x=>x.textContent.includes('2026-10-25 東京11R')).value);await page.locator('#raceTarget').selectOption(other);await page.waitForFunction(()=>document.querySelector('#automaticLaboPrediction')?.textContent.includes('確認できません'));if(await box.getAttribute('data-snapshot-sha256'))throw Error('Wrong target retained verified badge');}
  if(errors.length)throw Error('Browser page errors: '+errors.join(';'));
  result={ok:true,source:live?'single-live-DB-readback':'synthetic-not-DB-data',raceKey,snapshotSha256:data.snapshotSha256,displayed,liveApiReads,liveWrites:0,forwardedBrowserApiReads:0,apiIntercepts,rootReads,pageErrors:errors,productionPersistenceProven:live,firstRaceAcquisitionAndCaptureProven:false};console.log('SINGLE_PREDICTION_BROWSER',JSON.stringify(result));
 }finally{await writeFile(out+'/result.json',JSON.stringify(result||{ok:false,source:live?'single-live-DB-readback':'synthetic-not-DB-data',liveApiReads,rootReads,pageErrors:errors},null,2));await browser.close();}
