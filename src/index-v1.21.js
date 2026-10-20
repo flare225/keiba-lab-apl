@@ -532,7 +532,7 @@ function renderFormationPreview(){let box=document.getElementById('formationPrev
  }
  mountOwnerMarkSave({document,window,getCurrent:()=>({target:window.getLaboTarget?.(),state:{phase:phaseInput.value,track:trackInput.value,marks:marks(),rosterVerified,roster,rosterNumbers}}),verifiedMarkPayload,initialLocalMarkPayload,applyDbMarks:applyServerMarks});
  mountIndependentLaboReview({document,window,api,getCurrent:()=>({target:window.getLaboTarget?.(),state:{phase:phaseInput.value,track:trackInput.value,marks:marks(),rosterVerified,roster,rosterNumbers}})});
- mountMarkSaving({document,window,getCurrent:()=>({target:window.getLaboTarget?.(),state:{phase:phaseInput.value,track:trackInput.value,marks:marks(),rosterVerified,roster,rosterNumbers,rosterSnapshot}}),verifiedMarkPayload,initialLocalMarkPayload,draftMarkMatch,sameDbMarks,summarizeDbRevision,localMarkReceipt});
+ mountMarkSaving({document,window,apiOrigin:api,getCurrent:()=>({target:window.getLaboTarget?.(),state:{phase:phaseInput.value,track:trackInput.value,marks:marks(),rosterVerified,roster,rosterNumbers,rosterSnapshot}}),verifiedMarkPayload,initialLocalMarkPayload,draftMarkMatch,sameDbMarks,summarizeDbRevision,localMarkReceipt});
  mountWorkoutEvidence({document,window,api,render:renderWorkoutEvidence,reference:netkeibaWorkoutReference});
  mountWorkoutImpressions({document,window,api,getRoster:getOfficialWorkoutRoster});
 })();

@@ -1,4 +1,4 @@
-export function mountMarkSaving({document,window,getCurrent,verifiedMarkPayload,initialLocalMarkPayload,draftMarkMatch,sameDbMarks,summarizeDbRevision,localMarkReceipt}){
+export function mountMarkSaving({document,window,apiOrigin, getCurrent,verifiedMarkPayload,initialLocalMarkPayload,draftMarkMatch,sameDbMarks,summarizeDbRevision,localMarkReceipt}){
  const el=id=>document.getElementById(id);
  const panel=el('userMarkSaveCard'),info=el('userMarkSaveInfo'),draftState=el('userMarkDraftState'),localState=el('userMarkLocalState'),
  dbState=el('userMarkDbState'),saveLocal=el('userMarkSaveLocal'),
@@ -58,7 +58,7 @@ export function mountMarkSaving({document,window,getCurrent,verifiedMarkPayload,
    const body=await r.json();
    if(seq!==request||!current()||stateKey(current())!==before)return;
    if(r.status===404&&/race not found/i.test(body.error||'')){
-    const pendingResponse=await fetch('/v1/lab/race-ops?'+p.toString(),{cache:'no-store'}),pending=await pendingResponse.json();
+    const pendingResponse=await fetch(apiOrigin+'/v1/lab/race-ops?'+p.toString(),{cache:'no-store'}),pending=await pendingResponse.json();
     if(seq!==request||!current()||stateKey(current())!==before)return;
     if(pendingResponse.ok&&pending.status==='awaiting-official-card'){
      lastRemote=null;dbState.textContent='正式出馬表は未保存です。印の正式DB保存・事前LOCKは保留です。保存履歴0件とは判定していません。';return;
