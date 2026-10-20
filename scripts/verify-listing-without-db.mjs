@@ -21,8 +21,10 @@ try{
  const notice=await page.locator('#raceListingNotice').innerText();if(!notice.includes('前回確認済み')||!notice.includes('未照合'))throw Error('Prior listing must not claim live DB verification');
  const niigata=week.find(x=>x.text.includes('2026-10-25 新潟12R'));if(!niigata)throw Error('Missing Niigata target');await page.locator('#raceTarget').selectOption(niigata.value);
  await page.waitForFunction(()=>window.getLaboTarget?.().venue==='新潟'&&window.getLaboTarget?.().raceNo===12);
+ await page.waitForFunction(()=>window.__laboReadRequestGuard?.status().queued===0&&window.__laboReadRequestGuard?.status().blockedUntil>0);
+ const guardedApiReads=intercepted.filter(url=>!['/v1/lab/deploy-check','/v1/lab/user-mark-session'].includes(new URL(url).pathname)).length;if(guardedApiReads>2)throw Error('Quota stop forwarded too many intercepted read requests: '+guardedApiReads);
  if(week.some(x=>x.text.includes('✓')))throw Error('Fallback listing claims verified cards');
  await page.screenshot({path:'listing-evidence/current-week-without-db.png',fullPage:true});
- result={currentWeekOptions:72,niigataOptions:week.filter(x=>x.text.includes('新潟')).length,selected:await page.evaluate(()=>window.getLaboTarget()),notice,forwarded,interceptedApiReads:intercepted.length,forwardedApiReads:0,blockedWrites:writes,pageErrors:errors,verification:'production HTML with locally intercepted API errors; not live DB readback'};
+ result={currentWeekOptions:72,niigataOptions:week.filter(x=>x.text.includes('新潟')).length,selected:await page.evaluate(()=>window.getLaboTarget()),notice,forwarded,interceptedApiReads:intercepted.length,guardedApiReads,forwardedApiReads:0,blockedWrites:writes,pageErrors:errors,verification:'production HTML with locally intercepted API errors; not live DB readback'};
  console.log('LISTING_NO_DB_VERIFIED',JSON.stringify(result));
 }finally{await writeFile('listing-evidence/result.json',JSON.stringify(result||{forwarded,intercepted,writes,errors},null,2));await browser.close();}
