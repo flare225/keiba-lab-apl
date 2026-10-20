@@ -42,7 +42,8 @@ export function mountMarkSaving({document,window,apiOrigin, getCurrent,verifiedM
    saveLocal.disabled=false;}
   localState.textContent=saved?(samePayload(saved.payload,payload)?'端末控え：第'+saved.localRevision+'版・'+timestring(saved.recordedAt)+'（端末時計）。※DB確定ではありません。':'端末控え：前の印 '+saved.localRevision+'版があります。現在の印は未記録。'):'端末控え：なし';
   const result=lastRemote?.key===stateKey(c)?summarizeDbRevision(lastRemote.data,c.state.phase):null;
-  if(result?.status==='saved'){
+  if(lastRemote?.key===stateKey(c)&&lastRemote.data?.status==='awaiting-official-card'){dbState.textContent='正式出馬表は未保存です。印の正式DB保存・事前LOCKは保留です。保存履歴0件とは判定していません。';}
+  else if(result?.status==='saved'){
    dbState.textContent='DB保存：改訂 '+result.revision.revisionNo+'版（'+result.revision.entries.length+'頭）'+(payload&&sameDbMarks(payload,result.revision)?' ／ 現在の印と一致':' ／ 現在の印とは不一致・未確定')+(result.revision.createdAt?' ／ DB保存日時 '+timestring(result.revision.createdAt):' ／ DB保存日時は未公開')+(lastRemote.checkedAt?' ／ DB再照合 '+timestring(lastRemote.checkedAt)+'（端末時計）':'');
   }else if(result?.status==='none')dbState.textContent='正式DB：この段階の印は未保存（保存履歴0件）。※端末控えとは別です。';
   else dbState.textContent='正式DB：未照合（「DB保存状態を確認」を押してください）';
@@ -57,11 +58,11 @@ export function mountMarkSaving({document,window,apiOrigin, getCurrent,verifiedM
    const r=await fetch('/v1/lab/user-marks?'+p.toString(),{cache:'no-store'});
    const body=await r.json();
    if(seq!==request||!current()||stateKey(current())!==before)return;
-   if(r.status===404&&/race not found/i.test(body.error||'')){
+   if(body.ok===false&&/race not found/i.test(body.error||'')){
     const pendingResponse=await fetch(apiOrigin+'/v1/lab/race-ops?'+p.toString(),{cache:'no-store'}),pending=await pendingResponse.json();
     if(seq!==request||!current()||stateKey(current())!==before)return;
     if(pendingResponse.ok&&pending.status==='awaiting-official-card'){
-     lastRemote=null;dbState.textContent='正式出馬表は未保存です。印の正式DB保存・事前LOCKは保留です。保存履歴0件とは判定していません。';return;
+     lastRemote={key:before,data:pending,checkedAt:stamp()};status();return;
     }
    }
    if(!r.ok||!body.ok)throw Error(body.error||'DB履歴を読み取れません');
