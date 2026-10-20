@@ -1,3 +1,4 @@
+import {installReadRequestGuard} from './read-request-guard.js';
 import {renderReviewedHistory,mountReviewedHistory} from './reviewed-history-view.js';
 import {renderAutomaticPrediction,mountAutomaticPrediction} from './automatic-prediction-view.js';
 import app from './index-v1.19.js';
@@ -592,5 +593,5 @@ export default{async fetch(request,env,ctx){
   '<div class="tab" data-id="bets"><b>￥</b>買い目</div>'+
   '</div></div>';
  html=html.slice(0,navStart)+navMarkup+html.slice(navEnd+'</div></div></div>'.length);
- return new Response(html.replace('<div class="k">サウジRC</div>','<div class="k">アイルランドT</div>').replace('</body>',enhancement+'<script>('+mountAutomaticPrediction.toString()+')({window,document,api:API,render:'+renderAutomaticPrediction.toString()+'});('+mountReviewedHistory.toString()+')({window,document,api:API,render:'+renderReviewedHistory.toString()+'});</script></body>'),{status:r.status,headers:r.headers});
+ return new Response(html.replace('<head>','<head><script>('+installReadRequestGuard.toString()+')(window,{apiOrigin:"https://keiba-lab-api.sekai-no-bancyou.workers.dev"});</script>').replace('<div class="k">サウジRC</div>','<div class="k">アイルランドT</div>').replace('</body>',enhancement+'<script>('+mountAutomaticPrediction.toString()+')({window,document,api:API,render:'+renderAutomaticPrediction.toString()+'});('+mountReviewedHistory.toString()+')({window,document,api:API,render:'+renderReviewedHistory.toString()+'});</script></body>'),{status:r.status,headers:r.headers});
 }};
