@@ -41,3 +41,8 @@ test('today precedes future assumptions and stale future selection does not hide
  assert.deepEqual(rows[initialRaceTargetIndex(rows,serializeRacePreference(other),stamp)],other);
  assert.equal(initialRaceTargetIndex([future],serializeRacePreference(future),stamp),0);
 });
+
+test('weekday defaults to next meeting instead of stale past presets',()=>{
+ const stamp=Date.parse('2026-10-20T00:00:00Z'),old={date:'2026-10-12',venue:'京都',raceNo:11},next={date:'2026-10-24',venue:'東京',raceNo:11};
+ const rows=orderRaceTargetsForToday([old,{...next,raceNo:1},next],stamp);assert.equal(rows[0].date,'2026-10-24');assert.deepEqual(rows[initialRaceTargetIndex(rows,serializeRacePreference(old),stamp)],next);assert.equal(initialRaceTargetIndex([old],serializeRacePreference(old),stamp),0);
+});
