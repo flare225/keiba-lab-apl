@@ -52,7 +52,7 @@ function sanitize(body){
  ||!Number.isInteger(raceNo)||raceNo<1||raceNo>12||!PHASES.has(body?.phase)||body?.confirm!=='SAVE')throw Error('保存対象・確認指定が不正です。');
  if(body.phase==='final'&&!['良','稍重','重','不良'].includes(body?.track))throw Error('最終印の馬場想定が必要です。');
  if(body.track&&!['良','稍重','重','不良'].includes(body.track))throw Error('馬場想定が不正です。');
- if(!Array.isArray(body.marks)||body.marks.length<1||body.marks.length>18)throw Error('印は1〜18頭を指定してください。');
+ if(!Array.isArray(body.marks)||body.marks.length<1||body.marks.length>(body.phase==='initial'?100:18))throw Error('印は1〜18頭を指定してください。');
  const names=new Set(),nos=new Set(),marks=[];
  for(const m of body.marks){
   const horseName=String(m?.horseName||'').trim(),horseNo=m?.horseNo==null?null:Number(m.horseNo),mark=m?.mark;
@@ -62,7 +62,7 @@ function sanitize(body){
   marks.push({horseName,...(horseNo!==null?{horseNo}:{}),mark});
  }
  if(marks.filter(x=>x.mark==='◎').length>1||marks.filter(x=>x.mark==='○').length>1)throw Error('◎または○が重複しています。');
- return {date,venue,raceNo,phase:body.phase,...(body.track?{track:body.track}:{}),marks,confirm:'SAVE'};
+ return {date,venue,raceNo,phase:body.phase,...(body.phase==='initial'&&typeof body.sourceSnapshotId==='string'?{sourceSnapshotId:body.sourceSnapshotId}:{}),...(body.track?{track:body.track}:{}),marks,confirm:'SAVE'};
 }
 async function readJSON(resp){if(!(resp.headers.get('content-type')||'').includes('json'))throw Error('保存APIがJSONを返しませんでした');return resp.json();}
 export async function handleOwnerSession(req,res,env=process.env,stamp=now(),fetcher=fetch){

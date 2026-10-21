@@ -12,7 +12,7 @@ export function mountOwnerMarkSave({document,window,getCurrent,verifiedMarkPaylo
   if(c.state.phase!=='initial')return verifiedMarkPayload(c.target,c.state);
   const p=initialLocalMarkPayload(c.target,c.state);
   // Initial marks may predate official numbers. Add numbers only after JRA verification.
-  if(c.state.rosterVerified!==true)return p;
+  if(c.state.rosterVerified!==true)return {...p,...(c.state.rosterSnapshot?{sourceSnapshotId:c.state.rosterSnapshot}:{})};
   return {...p,marks:p.marks.map(m=>{
    const n=c.state.rosterNumbers?.[m.horseName];
    return n?.verified===true&&Number.isInteger(n.horseNo)?{...m,horseNo:n.horseNo}:m;
