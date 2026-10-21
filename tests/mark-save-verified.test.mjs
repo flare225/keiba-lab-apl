@@ -115,3 +115,4 @@ test('history and locked-result reads retain access-block status with no false e
   assert.equal(data.code,status);assert.equal(data.value.stage,'upstream-read-blocked');assert.equal(data.value.retryRead,false);assert.equal(calls,1);assert.equal(data.value.revisions,undefined);assert.doesNotMatch(JSON.stringify(data.value),/private block page/);
  }
 });
+test('initial marks accept a 25-name expected roster while official final validation remains strict',()=>{const roster=Array.from({length:25},(_,i)=>'想定馬'+i);const p=initialLocalMarkPayload(target,{phase:'initial',roster,marks:[{horseName:roster[24],mark:'◎'}]});assert.equal(p.marks[0].horseName,roster[24]);assert.equal(p.marks[0].horseNo,undefined);assert.throws(()=>verifiedMarkPayload(target,{phase:'post_draw',roster,rosterVerified:false,marks:p.marks}),/正式出馬表/);assert.throws(()=>initialLocalMarkPayload(target,{phase:'initial',roster:[...roster,roster[0]],marks:p.marks}),/出走馬一覧/);});

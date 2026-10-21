@@ -63,9 +63,9 @@ export function initialLocalMarkPayload(target,state={}){
   throw Error('対象レースを確認してください。');
  if(state.phase!=='initial')throw Error('初期印の控えではありません。');
  const roster=Array.isArray(state.roster)?state.roster:[];
- if(roster.length<1||roster.length>18)throw Error('出走馬一覧を読み込んでから印を記録してください。');
+ if(roster.length<1||roster.length>100||new Set(roster).size!==roster.length)throw Error('出走馬一覧を読み込んでから印を記録してください。');
  const selected=state.marks;
- if(!Array.isArray(selected)||selected.length<1||selected.length>18)throw Error('印を1頭以上選んでください。');
+ if(!Array.isArray(selected)||selected.length<1||selected.length>100)throw Error('印を1頭以上選んでください。');
  const seen=new Set(),marks=[];
  for(const m of selected){
   const name=String(m?.horseName||'').trim();

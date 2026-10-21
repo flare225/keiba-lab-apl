@@ -58,7 +58,9 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
  if(!root||!status||!content||!refresh)return;
  const copy=document.getElementById('independentLaboCopy'),copyText=document.getElementById('independentLaboCopyText');
  if(copy)copy.disabled=true;
- let request=0,currentKey='',last=null;
+ let request=0,currentKey='',last=null,provisional=null;
+ function provisionalInline(){const c=getCurrent(),s=provisional?.snapshot;if(!c||c.state.rosterVerified===true||provisional?.browserIntegrityVerified!==true||!s||c.target.date!==s.race.date||c.target.venue!==s.race.venue||Number(c.target.raceNo)!==Number(s.race.raceNo)||c.state.roster.length!==s.runners.length||c.state.roster.some(name=>!s.runners.some(r=>r.horseName===name))||(c.state.rosterSnapshot&&c.state.rosterSnapshot!==s.roster?.snapshotId))return;for(const node of document.querySelectorAll?.('[data-labo-horse]')||[]){const r=s.runners.find(r=>r.horseName===node.dataset.laboHorse);if(r)node.textContent=r.rank===null?'LABO暫定：評価保留（保存済み履歴を確認）':'LABO暫定 '+r.mark+' · '+r.rank+'位 · '+r.score+'点';}status.textContent='DB保存済みLABO暫定評価（自分の初期印とは別）';}
+ window.addEventListener('labo-provisional-prediction',e=>{provisional=e.detail;provisionalInline();});
  function inline(review=null){
   const byName=new Map((review?.rows||[]).map(r=>[r.name,r]));
   for(const node of document.querySelectorAll?.('[data-labo-horse]')||[]){
@@ -76,7 +78,7 @@ export function mountIndependentLaboReview({document,window,getCurrent,api,fetch
   const c=getCurrent(),n=++request;
   if(!c?.target||c.state.rosterVerified!==true||!c.state.roster?.length){
    status.textContent='JRA正式出馬表を読み込み中。馬名と馬番がそろってからLABO自身の評価を取得します。';
-   content.textContent='';last=null;inline();if(copy)copy.disabled=true;return;
+   content.textContent='';last=null;inline();provisionalInline();if(copy)copy.disabled=true;return;
   }
   const t=c.target,track=c.state.track||null,rosterStamp=JSON.stringify(c.state.roster);
   currentKey=key(t);
