@@ -1,3 +1,4 @@
+import {verifyProvisionalPrediction,renderProvisionalPrediction,mountProvisionalPrediction} from './provisional-prediction-view.js';
 import {installReadRequestGuard} from './read-request-guard.js';
 import {renderReviewedHistory,mountReviewedHistory} from './reviewed-history-view.js';
 import {renderAutomaticPrediction,mountAutomaticPrediction,verifyAutomaticPrediction} from './automatic-prediction-view.js';
@@ -16,7 +17,7 @@ import {mountOwnerMarkSave} from './mark-owner-client-v1.25.js';
 import {MARK_PHASES,MARK_PHASE_STORAGE_PREFIX,markPhaseStorageKey,readRememberedMarkPhase,serializeRacePreference} from './mark-view-preferences.js';
 import {MARK_EXPORT_PHASES,MARK_EXPORT_LABELS,MARK_EXPORT_CHOICES,parseRace,snapshot,readStored,collectSavedRaceMarks,formatBulkRaceMarks,mountBulkRaceMarkCopy} from './mark-bulk-export-v1.24.js';
 import {PORTABLE_MARK_BACKUP_KIND,PORTABLE_MARK_BACKUP_SCHEMA,TRACK as PORTABLE_TRACK,validDate,safeIso,raceId,normalizeRecord,buildPortableMarkBackup,parsePortableMarkBackup,importPortableMarkBackup,mountPortableMarkBackup} from './mark-portable-backup.js';
-export const VERSION='1.25.7';
+export const VERSION='1.25.8';
 export function buildBudgetBets({budget=0,marks=[],mode='balanced',types=null}={}){
  const input=Number(budget),yen=Number.isFinite(input)&&input>=100?Math.floor(input/100)*100:0,clean=(Array.isArray(marks)?marks:[]).filter(x=>x&&(x.horseName||Number.isInteger(x.horseNo))&&['◎','○','▲','△','☆','注'].includes(x.mark)).slice(0,18).map(x=>({...x,horseName:(Number.isInteger(x.frameNo)?x.frameNo+'枠 ':'')+(Number.isInteger(x.horseNo)?x.horseNo+'番 ':'')+(x.horseName||'')})),by=m=>clean.filter(x=>x.mark===m).map(x=>x.horseName);
  const main=[...by('◎'),...by('○'),...by('▲')].slice(0,6),insurance=[...by('△'),...by('☆'),...by('注')].slice(0,6),items=[],enabled=new Set(Array.isArray(types)?types:['馬連','ワイド','三連複','三連単']);
@@ -593,5 +594,5 @@ export default{async fetch(request,env,ctx){
   '<div class="tab" data-id="bets"><b>￥</b>買い目</div>'+
   '</div></div>';
  html=html.slice(0,navStart)+navMarkup+html.slice(navEnd+'</div></div></div>'.length);
- return new Response(html.replace('<head>','<head><script>('+installReadRequestGuard.toString()+')(window,{apiOrigin:"https://keiba-lab-api.sekai-no-bancyou.workers.dev"});</script>').replace('<div class="k">サウジRC</div>','<div class="k">アイルランドT</div>').replace('</body>',enhancement+'<script>('+mountAutomaticPrediction.toString()+')({window,document,api:API,render:'+renderAutomaticPrediction.toString()+',verify:'+verifyAutomaticPrediction.toString()+'});('+mountReviewedHistory.toString()+')({window,document,api:API,render:'+renderReviewedHistory.toString()+'});</script></body>'),{status:r.status,headers:r.headers});
+ return new Response(html.replace('<head>','<head><script>('+installReadRequestGuard.toString()+')(window,{apiOrigin:"https://keiba-lab-api.sekai-no-bancyou.workers.dev"});</script>').replace('<div class="k">サウジRC</div>','<div class="k">アイルランドT</div>').replace('</body>',enhancement+'<script>('+mountAutomaticPrediction.toString()+')({window,document,api:API,render:'+renderAutomaticPrediction.toString()+',verify:'+verifyAutomaticPrediction.toString()+'});('+mountProvisionalPrediction.toString()+')({window,document,api:API,render:'+renderProvisionalPrediction.toString()+',verify:'+verifyProvisionalPrediction.toString()+'});('+mountReviewedHistory.toString()+')({window,document,api:API,render:'+renderReviewedHistory.toString()+'});</script></body>'),{status:r.status,headers:r.headers});
 }};
