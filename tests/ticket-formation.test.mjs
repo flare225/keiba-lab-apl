@@ -100,3 +100,12 @@ test('slip rejects wrong arity, duplicate horses and invalid frame numbers',()=>
  }
  assert.equal(calculateTicketSlip([{type:'枠連',unitStake:100,combos:[[1,1]]}],1000).ok,true);
 });
+
+test('slip rejects empty entries and unsafe integer totals',()=>{
+ const empty=calculateTicketSlip([{type:'馬連',unitStake:100,combos:[]}],1000);
+ assert.equal(empty.ok,false);
+ const huge=calculateTicketSlip([{type:'単勝',unitStake:Number.MAX_SAFE_INTEGER-1,combos:[[1],[2]]}],1000);
+ assert.equal(huge.ok,false);
+ const nearLimit=calculateTicketSlip([{type:'単勝',unitStake:9007199254740900,combos:[[1],[2]]}],1000);
+ assert.equal(nearLimit.ok,false);
+});
