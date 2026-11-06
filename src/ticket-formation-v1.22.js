@@ -80,7 +80,10 @@ export function calculateTicketSlip(items=[],budget=0){
   const stake=validateTicketStake(item.unitStake);
   if(stake===null||!WAGER_TYPES.includes(item.type)||!Array.isArray(item.combos))return{ok:false,error:'券種または1点あたりの金額が不正です。',total,count,budget:yen};
   for(const combo of item.combos){
-   if(!Array.isArray(combo)||combo.length<1||combo.some(x=>!Number.isInteger(x)||x<1||x>18))return{ok:false,error:'買い目の組番が不正です。',total,count,budget:yen};
+   const expectedLength=['単勝','複勝'].includes(item.type)?1:['枠連','馬連','馬単','ワイド'].includes(item.type)?2:3;
+   const validNumbers=Array.isArray(combo)&&combo.length===expectedLength&&combo.every(x=>Number.isInteger(x)&&x>=1&&x<=(item.type==='枠連'?8:18));
+   const distinct=item.type==='枠連'&&combo?.length===2&&combo[0]===combo[1]||new Set(combo||[]).size===expectedLength;
+   if(!validNumbers||!distinct)return{ok:false,error:'買い目の組番が不正です。',total,count,budget:yen};
    const key=item.type+':'+combo.join('-');if(seen.has(key))duplicates.push(key);seen.add(key);
   }
   total+=stake*item.combos.length;count+=item.combos.length;
