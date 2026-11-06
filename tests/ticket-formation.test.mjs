@@ -91,3 +91,12 @@ test('draft blocks overbudget and all-duplicate tickets before adding',async()=>
  const repeated=reviewTicketDraft(config,[{type:'三連単',unitStake:100,combos:[[1,2,3],[1,2,4]]}],100,1000);assert.equal(repeated.ok,false);assert.equal(repeated.newCount,0);assert.match(repeated.error,/登録済み/);
  assert.equal(reviewTicketDraft(config,[],150,1000).ok,false);
 });
+
+test('slip rejects wrong arity, duplicate horses and invalid frame numbers',()=>{
+ for(const [type,combo] of [['馬連',[1]],['三連単',[1,2]],['馬単',[1,1]],['三連複',[1,1,2]],['枠連',[1,9]],['単勝',[1,2]]]){
+  const slip=calculateTicketSlip([{type,unitStake:100,combos:[combo]}],1000);
+  assert.equal(slip.ok,false,`${type}: ${combo}`);
+  assert.match(slip.error,/組番/);
+ }
+ assert.equal(calculateTicketSlip([{type:'枠連',unitStake:100,combos:[[1,1]]}],1000).ok,true);
+});
