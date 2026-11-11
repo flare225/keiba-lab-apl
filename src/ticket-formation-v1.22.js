@@ -78,7 +78,7 @@ export function calculateTicketSlip(items=[],budget=0){
  let total=0,count=0;const seen=new Set(),duplicates=[];
  for(const item of items){
   const stake=validateTicketStake(item.unitStake);
-  if(stake===null||!WAGER_TYPES.includes(item.type)||!Array.isArray(item.combos))return{ok:false,error:'券種または1点あたりの金額が不正です。',total,count,budget:yen};
+  if(stake===null||!WAGER_TYPES.includes(item.type)||!Array.isArray(item.combos)||!item.combos.length)return{ok:false,error:'券種または1点あたりの金額が不正です。',total,count,budget:yen};
   for(const combo of item.combos){
    const expectedLength=['単勝','複勝'].includes(item.type)?1:['枠連','馬連','馬単','ワイド'].includes(item.type)?2:3;
    const validNumbers=Array.isArray(combo)&&combo.length===expectedLength&&combo.every(x=>Number.isInteger(x)&&x>=1&&x<=(item.type==='枠連'?8:18));
@@ -86,7 +86,9 @@ export function calculateTicketSlip(items=[],budget=0){
    if(!validNumbers||!distinct)return{ok:false,error:'買い目の組番が不正です。',total,count,budget:yen};
    const key=item.type+':'+combo.join('-');if(seen.has(key))duplicates.push(key);seen.add(key);
   }
-  total+=stake*item.combos.length;count+=item.combos.length;
+  const lineTotal=stake*item.combos.length;
+  if(!Number.isSafeInteger(lineTotal)||!Number.isSafeInteger(total+lineTotal)||!Number.isSafeInteger(count+item.combos.length))return{ok:false,error:'購入金額または点数が計算上限を超えています。',total,count,budget:yen};
+  total+=lineTotal;count+=item.combos.length;
  }
  return{ok:total<=yen&&duplicates.length===0,total,count,budget:yen,remaining:yen-total,duplicates,error:duplicates.length?'重複する買い目が含まれます。':total>yen?'設定した予算を超えています。':null};
 }
